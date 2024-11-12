@@ -102,8 +102,9 @@ if __name__ == '__main__':
     total_timesteps = 100000  # Number of timesteps to train in each loop
     save_interval = 1000  # How often to save the model (in timesteps)
     best_reward = -np.inf  # Initial best reward
-    best_model_path = f"{model.__class__.__name__}_best_model"  # Path to save the best model
-    latest_model_path = f"{model.__class__.__name__}_latest_model"  # Path to save the latest model
+    model_path = 'model/'
+    best_model_path = model_path + f"{model.__class__.__name__}_best_model"  # Path to save the best model
+    latest_model_path = model_path + f"{model.__class__.__name__}_latest_model"  # Path to save the latest model
 
     print(f"Training {model.__class__.__name__} model...")
 
@@ -116,7 +117,6 @@ if __name__ == '__main__':
         This loop will continuously train the model and evaluate its performance.
         Modify the total_timesteps and save_interval to adjust the training frequency and model saving.
         """
-
         # Train the model for a specified number of timesteps
         model.learn(total_timesteps=total_timesteps, reset_num_timesteps=False)
 

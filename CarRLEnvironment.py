@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import eventlet
 from CarDataService import CarSocketService, CarData
-
+import os
 
 class CarRLEnvironment(gym.Env):
     def __init__(self, car_service: CarSocketService):
@@ -121,15 +121,33 @@ class CarRLEnvironment(gym.Env):
 
         reward = self._compute_reward(car_data)
         self.done = self._check_done(car_data)
+        
+        # ===== debug message =====
+        self._clear_console()
+        self._print_debug_info(car_data)  # Debugging info for telemetry and time intervals
+        # =========================
 
         # Update timestamp and calculate FPS
         time_diff = self.car_service.carData.timestamp - self._last_timestamp
         fps = int(1000 / time_diff) if time_diff > 0 else 0
         print(f"\r{fps: 05.1f} fps -> unity world {fps/car_data.time_speed_up_scale: 05.1f} fps, reward: {reward: 05.2f}", end="")
         self._last_timestamp = car_data.timestamp
-
         return self.current_observation, reward, self.done, False, {}
 
+    def _clear_console(self):
+        """
+        Clear the console output for easier debugging.
+        """
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    def _print_debug_info(self, car_data):
+        """
+        Print car telemetry and frame time interval for debugging purposes.
+
+        Args:
+            car_data (CarData): Contains telemetry information like speed, progress, etc.
+        """
+        print(car_data)
     def _compute_reward(self, car_data: CarData):
         """
         Compute the reward for the current step based on the car's progress and position.
