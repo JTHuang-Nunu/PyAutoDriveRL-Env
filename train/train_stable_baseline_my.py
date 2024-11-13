@@ -73,7 +73,7 @@ class CustomCNN(BaseFeaturesExtractor):
         # Concatenate image features and steering/speed, and pass through the linear layer
         return self.linear(th.cat([image_features, steering_speed], dim=1))
 
-def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=5000, n_steps=1000,batch_size=100, share_dict=None):
+def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=5000, n_steps=1000,batch_size=100, share_dict=None, log_path='log/'):
     """
     Parameters:
         strategy (str): The RL strategy to use ('PPO' or 'SAC').
@@ -101,9 +101,20 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     # Choose between SAC or PPO model (PPO used here for example)
     try: 
         if strategy == 'PPO':
-            model = PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1, n_steps=n_steps, batch_size=batch_size)
+            model = PPO("MultiInputPolicy", 
+                        env, 
+                        policy_kwargs=policy_kwargs,
+                        verbose=1,
+                        n_steps=n_steps,
+                        batch_size=batch_size,
+                        tensorboard_log=log_path)
         elif strategy == 'SAC':
-            model = SAC("MultiInputPolicy", env, policy_kwargs=policy_kwargs, buffer_size=1_000_000, verbose=0)
+            model = SAC("MultiInputPolicy",
+                        env, 
+                        policy_kwargs=policy_kwargs, 
+                        buffer_size=1_000_000, 
+                        verbose=0
+                        tensorboard_log=log_path)
         else:
             raise ValueError("Invalid strategy.")
     except ValueError as e:
@@ -129,6 +140,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
                 model_path = manual_path
             else:
                 raise ValueError("Invalid model_mode. Choose from 'load', 'new', or 'manual'.")
+            
             if model_path:
                     model = loader.load_model(model, model_path)
             else:
@@ -165,13 +177,13 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
             current_timesteps += timesteps_to_train
 
             # Save latest model
-            loader.save_model('latest', model)
+            loader.save_model(model, 'latest')
 
             # Evaluate the model by running
             mean_reward = evaluate(model, env)
             if mean_reward > best_reward:
                 best_reward = mean_reward
-                loader.save_model('best', model)
+                loader.save_model(model, 'best')
                 early_stopping_counter = 0
             else:
                 early_stopping_counter += 1

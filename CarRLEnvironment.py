@@ -21,6 +21,8 @@ class CarRLEnvironment(gym.Env):
 
         self.car_service = car_service
         self.car_service.start_with_nothing()
+        # self.car_data_window = CarDataWindow()
+        # self.car_data_window.run()
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
             "image": spaces.Box(low=0, high=255, shape=(64, 64, 1), dtype=np.uint8),
@@ -180,7 +182,7 @@ class CarRLEnvironment(gym.Env):
         if car_data.y < 0 or car_data.progress >= 100.0:
             return True
 
-        if car_data.timestamp - self.__check_done_use_last_timestamp > 30_000 / car_data.time_speed_up_scale:
+        if car_data.timestamp - self.__check_done_use_last_timestamp > 30_000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
             if car_data.progress - self.__check_done_use_progress < 0.001:
                 return True
             self.__check_done_use_last_timestamp = car_data.timestamp
