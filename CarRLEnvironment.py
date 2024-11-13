@@ -21,6 +21,8 @@ class CarRLEnvironment(gym.Env):
 
         self.car_service = car_service
         self.car_service.start_with_nothing()
+        # self.car_data_window = CarDataWindow()
+        # self.car_data_window.run()
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
             "image": spaces.Box(low=0, high=255, shape=(64, 64, 1), dtype=np.uint8),

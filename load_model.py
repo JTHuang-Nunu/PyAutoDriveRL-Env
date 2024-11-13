@@ -6,21 +6,21 @@ import numpy as np
 from logger import logger
 class Loader:
     def __init__(self):
-        self.directory = None
+        self.model_dir = None
+        self.model_curr_dir = None
 
     def set_model_dir(self, model_dir):
-        self.directory = model_dir
+        self.model_dir = model_dir
 
     def create_model_directory(self, model_name):
         """
         每次訓練新模型時建立新資料夾，使用當前時間來命名。
         """
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_dir = os.path.join(self.directory, f"{model_name}_{current_time}")
-        os.makedirs(model_dir, exist_ok=True)
-        self.directory = model_dir
+        self.model_curr_dir = os.path.join(self.model_dir, f"{model_name}_{current_time}")
+        os.makedirs(self.model_curr_dir, exist_ok=True)
         
-        return model_dir
+        return self.model_curr_dir
 
     def get_latest_model(self, model_name, type='best'):
         """
@@ -34,10 +34,9 @@ class Loader:
             model_name = 'latest_model.pth'
 
         # Search for the specific model 
-        for i in sorted(os.listdir('runs'),reverse=True):
-            path = os.path.join('runs', i)
+        for i in sorted(os.listdir(self.model_dir),reverse=True):
+            path = os.path.join(self.model_dir, i)
             if os.path.isdir(path):
-                
                 if os.path.exists(os.path.join(path,model_name)):
                     model_path = os.path.join(path, model_name)
                     logger.info(f"Loading model from: {model_path}")
@@ -45,19 +44,26 @@ class Loader:
         return None
 
 
-    def save_model(self, mode, model):
+    def save_model(self, model, type):
         """
         保存模型至指定的資料夾。
         """
         # Update model.pth
-        if mode == 'latest':
-            latest_path = os.path.join(self.directory, "latest_model.pth")
+        if type == 'latest':
+            latest_path = os.path.join(self.model_curr_dir, "latest_model.pth")
             model.save(latest_path)
             logger.info(f"Latest model saved to: {latest_path}")
-        elif mode == 'best':
-            best_path = os.path.join(self.directory, "best_model.pth")
+            # bak the latest model
+            latest_path_bak = os.path.join(self.model_dir, "latest_model.pth")
+            model.save(latest_path_bak)
+        elif type == 'best':
+            best_path = os.path.join(self.model_curr_dir, "best_model.pth")
             model.save(best_path)
             logger.info(f"Best model saved to: {best_path}")
+            # bak the best model
+            best_path_bak = os.path.join(self.model_dir, "best_model.pth")
+            model.save(best_path_bak)
+
         else:
             raise ValueError("Invalid mode. Choose from 'latest' or 'best'.")
 
