@@ -73,7 +73,7 @@ class CustomCNN(BaseFeaturesExtractor):
         # Concatenate image features and steering/speed, and pass through the linear layer
         return self.linear(th.cat([image_features, steering_speed], dim=1))
 
-def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=5000, n_steps=1000,batch_size=100, share_dict=None, log_path='log/'):
+def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_interval=10000):
     """
     Parameters:
         strategy (str): The RL strategy to use ('PPO' or 'SAC').
@@ -101,13 +101,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     # Choose between SAC or PPO model (PPO used here for example)
     try: 
         if strategy == 'PPO':
-            model = PPO("MultiInputPolicy", 
-                        env, 
-                        policy_kwargs=policy_kwargs,
-                        verbose=1,
-                        n_steps=n_steps,
-                        batch_size=batch_size,
-                        tensorboard_log=log_path)
+            model = PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
         elif strategy == 'SAC':
             model = SAC("MultiInputPolicy",
                         env, 
@@ -124,25 +118,15 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     model_dir = 'runs/'
     loader.set_model_dir(model_dir)
     # Load or create a new model
-    try:
-        if model_mode != "new":
-            model_path = None
-            # Load the latest model 
-            if model_mode == "load_latest":
-                model_path = loader.get_latest_model(strategy, type='latest')
-            # Load the best model 
-            elif model_mode == "load_best":
-                model_path = loader.get_latest_model(strategy, type='best')
-            # Load the manual model
-            elif model_mode == "manual":
-                if manual_path is None:
-                    raise ValueError("Please specify the manual_path for the model.")
-                model_path = manual_path
-            else:
-                raise ValueError("Invalid model_mode. Choose from 'load', 'new', or 'manual'.")
-            
-            if model_path:
-                    model = loader.load_model(model, model_path)
+    try: 
+        if model_mode == "new":
+            model_dir = create_model_directory(strategy)
+            logger.info(f"Created new model directory: {model_dir}")
+
+        elif model_mode == "load":
+            latest_model_path = get_latest_model(strategy)
+            if latest_model_path:
+                model = load_model(model, latest_model_path)
             else:
                 logger.info("No existing model found. Starting new training.")
 
@@ -176,17 +160,18 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
             model.learn(total_timesteps=timesteps_to_train, reset_num_timesteps=False)
             current_timesteps += timesteps_to_train
 
-            # Save latest model
-            loader.save_model(model, 'latest')
+                # Save latest model
+                logger.info(f"Saving latest model: {latest_model_path}")
+                save_model('latest', model)
 
-            # Evaluate the model by running
-            mean_reward = evaluate(model, env)
-            if mean_reward > best_reward:
-                best_reward = mean_reward
-                loader.save_model(model, 'best')
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
+                # Evaluate the model by running
+                mean_reward = evaluate(model, env)
+                if mean_reward > best_reward:
+                    best_reward = mean_reward
+                    save_model('best', model)
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
 
             # Check for early stopping
             if early_stopping_counter >= patience:
