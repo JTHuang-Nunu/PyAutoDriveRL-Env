@@ -7,9 +7,9 @@ import cv2
 import eventlet
 from CarDataService import CarSocketService, CarData
 import os
-
+from CarDataWindow import CarDataWindow
 class CarRLEnvironment(gym.Env):
-    def __init__(self, car_service: CarSocketService):
+    def __init__(self, car_service: CarSocketService, share_dict):
         """
         Initialize the CarRL environment with a given car service and number of frames to stack.
 
@@ -21,7 +21,6 @@ class CarRLEnvironment(gym.Env):
 
         self.car_service = car_service
         self.car_service.start_with_nothing()
-
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
             "image": spaces.Box(low=0, high=255, shape=(64, 64, 1), dtype=np.uint8),
@@ -44,6 +43,7 @@ class CarRLEnvironment(gym.Env):
         self.__check_done_use_last_timestamp = 0
         self.__check_done_use_progress = 0
 
+        self.shared_dict = share_dict
         # Wait for connection and data
         while not (self.car_service.client_connected and self.car_service.initial_data_received):
             eventlet.sleep(self.system_delay)
@@ -123,8 +123,10 @@ class CarRLEnvironment(gym.Env):
         self.done = self._check_done(car_data)
         
         # ===== debug message =====
-        self._clear_console()
-        self._print_debug_info(car_data)  # Debugging info for telemetry and time intervals
+        # self.car_data_window.update_data(car_data)
+        self.shared_dict['car_data'] = car_data
+        # self._clear_console()
+        # self._print_debug_info(car_data)  # Debugging info for telemetry and time intervals
         # =========================
 
         # Update timestamp and calculate FPS
