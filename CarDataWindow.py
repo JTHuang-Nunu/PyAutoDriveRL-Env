@@ -16,7 +16,7 @@ class CarDataWindow:
         self.data_label.config(text=data)
         self.window.after(100, self.update_data)
 
-    def run(self):
+    def start(self):
         self.window.mainloop()
 
 class CarDataWindowBAK:

@@ -73,7 +73,7 @@ class Loader:
         載入指定路徑的模型。
         """
         if os.path.exists(model_path):
-            print(f"Loading model from: {model_path}")
+            logger.info(f"Loading model from: {model_path}")
             model.load(model_path)
             # model.eval()
             return model

@@ -5,75 +5,22 @@ from datetime import datetime
 import numpy as np
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+
 import torch as th
 import torch.nn as nn
 from gymnasium import spaces
 
 from CarRLEnvironment import CarRLEnvironment
 from CarDataService import CarSocketService
+from CNNTask import MultiTaskCNN, CustomCNN
 from load_model import *
 
 loader = Loader()
 # logger.basicConfig(level=logger.INFO, format="%(levelname)s - %(message)s")
 
-class CustomCNN(BaseFeaturesExtractor):
-    """
-    Custom CNN feature extractor for handling image input and extracting features.
 
-    Args:
-        observation_space (spaces.Dict): The observation space which includes the image input.
-        features_dim (int): The dimension of the output feature vector after CNN layers.
-    """
 
-    def __init__(self, observation_space: spaces.Dict, features_dim: int = 256):
-        # Extract the 'image' shape from observation space, assuming image is (64, 64, 3)
-        super(CustomCNN, self).__init__(observation_space, features_dim)
-
-        n_input_channels = observation_space['image'].shape[0]  # Get the number of input channels (stacked frames)
-
-        # Define CNN layers
-        self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=9, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=5, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-
-        # Get the output dimension of the CNN layers
-        with th.no_grad():
-            sample_input = th.zeros(1, *observation_space['image'].shape)
-            cnn_output_dim = self.cnn(sample_input).shape[1]
-
-        # Define a fully connected layer to combine CNN output with other inputs (steering/speed)
-        self.linear = nn.Sequential(
-            nn.Linear(cnn_output_dim + 2, features_dim),  # Add steering and speed (2,)
-            nn.ReLU(),
-        )
-
-    def forward(self, observations):
-        """
-        Forward pass for feature extraction.
-
-        Args:
-            observations (dict): A dictionary containing 'image' and 'steering_speed' inputs.
-
-        Returns:
-            Tensor: A tensor representing extracted features from image and steering/speed.
-        """
-        image = observations['image']  # Extract image input
-        image_features = self.cnn(image)  # Extract features using CNN
-
-        # Process non-image input (steering and speed)
-        steering_speed = observations['steering_speed']
-
-        # Concatenate image features and steering/speed, and pass through the linear layer
-        return self.linear(th.cat([image_features, steering_speed], dim=1))
-
-def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=5000, n_steps=1000,batch_size=100, share_dict=None, log_path='log/'):
+def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=None, n_steps=None,batch_size=None, share_dict=None, log_path='log/'):
     """
     Parameters:
         strategy (str): The RL strategy to use ('PPO' or 'SAC').
@@ -93,10 +40,15 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     check_env(env)
 
     # Define policy arguments with the custom CNN feature extractor
+    # policy_kwargs = {
+    #     "features_extractor_class": CustomCNN,
+    #     "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
+    # }
     policy_kwargs = {
-        "features_extractor_class": CustomCNN,
+        "features_extractor_class": MultiTaskCNN,
         "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
     }
+    
 
     # Choose between SAC or PPO model (PPO used here for example)
     try: 
@@ -113,7 +65,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
                         env, 
                         policy_kwargs=policy_kwargs, 
                         buffer_size=1_000_000, 
-                        verbose=0
+                        verbose=0,
                         tensorboard_log=log_path)
             model = SAC("MultiInputPolicy",
                         env, 
@@ -133,13 +85,13 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     try:
         if model_mode != "new":
             model_path = None
-            # Load the latest model 
+            # Get the latest model path
             if model_mode == "load_latest":
                 model_path = loader.get_latest_model(strategy, type='latest')
-            # Load the best model 
+            # Get the best model path
             elif model_mode == "load_best":
                 model_path = loader.get_latest_model(strategy, type='best')
-            # Load the manual model
+            # Get the manual model path
             elif model_mode == "manual":
                 if manual_path is None:
                     raise ValueError("Please specify the manual_path for the model.")
@@ -147,6 +99,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
             else:
                 raise ValueError("Invalid model_mode. Choose from 'load', 'new', or 'manual'.")
             
+            # Load the model if found
             if model_path:
                     model = loader.load_model(model, model_path)
             else:
@@ -167,7 +120,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     best_reward = -np.inf  # Initial best reward
     current_timesteps = 0  # Record the current training timesteps
     early_stopping_counter = 0
-    patience = 10  # Patience for early stopping
+    patience = 100  # Patience for early stopping From 10 to 100
 
     # -------------------------------------------------
     # ----------------- Training Loop -----------------

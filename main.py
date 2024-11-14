@@ -16,21 +16,32 @@ from CarDataWindow import CarDataWindow
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 203efee (update: PPO hyperparameter setting)
 def signal_handler(sig, frame):
     print("Shutdown signal received. Terminating all processes...")
     train_process.terminate()
     sys.exit(0)
+=======
+# def signal_handler(sig, frame):
+#     print("Shutdown signal received. Terminating all processes...")
+#     train_process.terminate()
+#     # sys.exit(0)
+>>>>>>> bc0b13a (ADD: CNN Backbone Network(base on Resnet50))
 
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+# signal.signal(signal.SIGINT, signal_handler)
+# signal.signal(signal.SIGTERM, signal_handler)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 37fc28b (ADD: GUI for Car_data and rewrite entry file to "main.py")
 =======
 >>>>>>> 203efee (update: PPO hyperparameter setting)
+=======
+unit = 64
+>>>>>>> bc0b13a (ADD: CNN Backbone Network(base on Resnet50))
 if __name__ == '__main__':
     with Manager() as manager:
         share_dict = manager.dict()
@@ -45,6 +56,7 @@ if __name__ == '__main__':
 <<<<<<< HEAD
 <<<<<<< HEAD
                 "timesteps": 1000000,
+<<<<<<< HEAD
                 "save_timesteps": 64*100,
 =======
                 "timesteps": 100000,
@@ -68,6 +80,16 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             print("KeyboardInterrupt received. Shutting down...")
             train_process.terminate()
+=======
+                "save_timesteps": unit*50,
+                "n_steps": unit*5,
+                "batch_size": unit,
+                "share_dict": share_dict
+            }
+        )
+        train_process.start()        
+        car_data_window.start()
+>>>>>>> bc0b13a (ADD: CNN Backbone Network(base on Resnet50))
 
 =======
         car_data_window.run()
