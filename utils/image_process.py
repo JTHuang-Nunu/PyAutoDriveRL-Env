@@ -92,6 +92,7 @@ class ImageProcessing:
         cropped_edges = ImageProcessing.region_of_interest(edges)
         lines = ImageProcessing.detect_lines(cropped_edges)
         lane_image = ImageProcessing.draw_lines_on_gray(preprocessed_image, lines)
+        lane_image = np.expand_dims(lane_image, axis=-1)
         return lane_image
 
 # 測試 ImageProcessing 類別

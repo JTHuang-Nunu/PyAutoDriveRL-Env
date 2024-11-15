@@ -67,12 +67,6 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
                         buffer_size=1_000_000, 
                         verbose=0,
                         tensorboard_log=log_path)
-            model = SAC("MultiInputPolicy",
-                        env, 
-                        policy_kwargs=policy_kwargs, 
-                        buffer_size=1_000_000, 
-                        verbose=0
-                        tensorboard_log=log_path)
         else:
             raise ValueError("Invalid strategy.")
     except ValueError as e:

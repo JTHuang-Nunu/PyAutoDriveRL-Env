@@ -120,7 +120,6 @@ class CarRLEnvironment(gym.Env):
 
         # Process and stack images
         image = car_data.image if car_data.image is not None else np.zeros((64, 64, 3), dtype=np.float32)
-        np.save('image.npy', image)
         processed_image = self._preprocess_observation(image)
 
         current_steering = float(car_data.steering_angle)
@@ -264,12 +263,8 @@ class CarRLEnvironment(gym.Env):
         Returns:
             processed_image (numpy.ndarray): The processed grayscale image.
         """
-        lane_processed_imag = ImageProcessing.lane_detection_pipeline(image)
-        # resized_image = cv2.resize(image, (64, 64))
-        # grayscale_image = np.mean(resized_image, axis=2, keepdims=True)
-        # cv2.imshow('Image', resized_image)
-        # cv2.imshow('Origin Image', image)
-        # cv2.waitKey(0)
+        resized_image = cv2.resize(image, (64, 64))
+        lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
         return lane_processed_imag.astype(np.uint8)
 
     def render(self, mode="human"):
