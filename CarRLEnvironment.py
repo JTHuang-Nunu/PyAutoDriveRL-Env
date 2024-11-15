@@ -1,13 +1,19 @@
+import os
 import time
-from collections import deque
-import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
 import cv2
 import eventlet
+import gymnasium as gym
+
+from collections import deque
+from gymnasium import spaces
+
 from CarDataService import CarSocketService, CarData
-import os
 from CarDataWindow import CarDataWindow
+from utils.image_process import ImageProcessing
+from RewardTask import MixTask
+import cv2
+import scipy.linalg as la
 class CarRLEnvironment(gym.Env):
     def __init__(self, car_service: CarSocketService, share_dict):
         """
@@ -21,8 +27,7 @@ class CarRLEnvironment(gym.Env):
 
         self.car_service = car_service
         self.car_service.start_with_nothing()
-        # self.car_data_window = CarDataWindow()
-        # self.car_data_window.run()
+
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
             "image": spaces.Box(low=0, high=255, shape=(64, 64, 1), dtype=np.uint8),
@@ -46,6 +51,10 @@ class CarRLEnvironment(gym.Env):
         self.__check_done_use_progress = 0
 
         self.shared_dict = share_dict
+        self.reward_task = MixTask(task_weights={
+                                        'progress': 1.0,
+                                        'tracking': 1.0,
+                                        'collision': 1.0,})
         # Wait for connection and data
         while not (self.car_service.client_connected and self.car_service.initial_data_received):
             eventlet.sleep(self.system_delay)
@@ -111,6 +120,7 @@ class CarRLEnvironment(gym.Env):
 
         # Process and stack images
         image = car_data.image if car_data.image is not None else np.zeros((64, 64, 3), dtype=np.float32)
+        np.save('image.npy', image)
         processed_image = self._preprocess_observation(image)
 
         current_steering = float(car_data.steering_angle)
@@ -121,10 +131,14 @@ class CarRLEnvironment(gym.Env):
             "steering_speed": np.array([current_steering, current_speed], dtype=np.float32)
         }
 
-        reward = self._compute_reward(car_data)
+        reward,_ = self._compute_reward_3(car_data)
         self.done = self._check_done(car_data)
-        
+
         # ===== debug message =====
+        # Show the image
+        # cv2.imshow('Image', car_data.image)
+        # cv2.waitKey(0)
+        # cv2.imwrite('output_image.png', car_data.image)
         # self.car_data_window.update_data(car_data)
         self.shared_dict['car_data'] = car_data
         # self._clear_console()
@@ -168,6 +182,56 @@ class CarRLEnvironment(gym.Env):
         # if car_data.obstacle_car == 1:
         #     reward -= 0.01  # Penalize if there is an obstacle
         return reward
+    def _compute_reward_2(self, car_data: CarData):
+        """
+        Compute the reward for the current step based on the car's performance and behavior.
+
+        Args:
+            car_data (CarData): The current car data received from the car service.
+
+        Returns:
+            reward (float): The calculated reward based on multiple factors.
+        """
+        # Progress Reward
+        progress_reward = (self.progress_queue[-1] - self.progress_queue[0]) * 100
+
+        # Speed Reward: Encourage speed between 10 and 30 m/s
+        speed = car_data.speed
+        if 10 <= speed <= 30:
+            speed_reward = speed * 0.1
+        else:
+            speed_reward = -abs(speed - 20) * 0.1  # Penalize if speed is outside the ideal range
+
+        # Steering Penalty: Penalize excessive steering
+        steering_angle = abs(car_data.steering_angle)
+        steering_penalty = -steering_angle * 0.5 if steering_angle > 0.5 else 0
+
+        # Off-Track Penalty: Apply a heavy penalty if the car is off-track
+        off_track_penalty = -20 if car_data.y < 0 else 0
+
+        # Collision Penalty: Penalize if the car collides with an obstacle
+        collision_penalty = -10 if car_data.obstacle_car == 1 else 0
+
+        # Stability Penalty: Penalize high angular velocity to encourage stable driving
+        stability_penalty = -abs(car_data.angular_velocity_z) * 0.1
+
+        # Total Reward Calculation
+        reward = (
+            progress_reward +
+            speed_reward +
+            steering_penalty +
+            off_track_penalty +
+            collision_penalty +
+            stability_penalty
+        )
+
+        return reward
+    def _compute_reward_3(self, car_data: CarData):
+        reward = self.reward_task.reward(car_data)
+        return reward
+
+
+
 
     def _check_done(self, car_data: CarData):
         """
@@ -200,9 +264,13 @@ class CarRLEnvironment(gym.Env):
         Returns:
             processed_image (numpy.ndarray): The processed grayscale image.
         """
-        resized_image = cv2.resize(image, (64, 64))
-        grayscale_image = np.mean(resized_image, axis=2, keepdims=True)
-        return grayscale_image.astype(np.uint8)
+        lane_processed_imag = ImageProcessing.lane_detection_pipeline(image)
+        # resized_image = cv2.resize(image, (64, 64))
+        # grayscale_image = np.mean(resized_image, axis=2, keepdims=True)
+        # cv2.imshow('Image', resized_image)
+        # cv2.imshow('Origin Image', image)
+        # cv2.waitKey(0)
+        return lane_processed_imag.astype(np.uint8)
 
     def render(self, mode="human"):
         """

@@ -71,6 +71,197 @@ class MultiTaskCNN(BaseFeaturesExtractor):
 
         return self.combined_fc(combined_features)
 
+class MultiTaskRNN(BaseFeaturesExtractor):
+    '''
+    redundant to have additional detector and segmenter
+    Multi-task RNN model with YOLOv8 backbone for feature extraction,
+    and an LSTM for sequential modeling.
+    '''
+    def __init__(self, observation_space, features_dim=256, hidden_dim=512, num_layers=1):
+        super(MultiTaskRNN, self).__init__(observation_space, features_dim)
+        
+        # Initialize YOLOv8 model and extract the backbone
+        yolo_model = YOLO('yolov8n.pt')  # Using the nano version for example
+        self.backbone = yolo_model.model.backbone
+        
+        # Optionally freeze backbone parameters
+        for param in self.backbone.parameters():
+            param.requires_grad = False  # Set to True if you want to fine-tune
+        
+        # Determine the output dimension of the backbone
+        with th.no_grad():
+            dummy_input = th.zeros(1, 3, 640, 640)  # Adjust input size as needed
+            backbone_outputs = self.backbone(dummy_input)
+            # Concatenate outputs from different stages
+            backbone_output = th.cat([f.flatten(1) for f in backbone_outputs], dim=1)
+            backbone_output_dim = backbone_output.shape[1]
+        
+        # LSTM for sequential modeling
+        self.lstm = nn.LSTM(input_size=backbone_output_dim, hidden_size=hidden_dim,
+                            num_layers=num_layers, batch_first=True)
+        
+        # Detection head
+        self.detector = nn.Sequential(
+            nn.Linear(hidden_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, features_dim),
+        )
+        
+        # Segmentation head
+        self.segmenter = nn.Sequential(
+            nn.ConvTranspose2d(hidden_dim, 256, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, 64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
+            nn.Sigmoid(),
+        )
+        
+        # Final combined fully connected layer
+        self.combined_fc = nn.Sequential(
+            nn.Linear(features_dim, features_dim),
+            nn.ReLU(),
+        )
+        
+        # Device setup
+        self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
+        self.to(self.device)
+    
+    def forward(self, observations):
+        # Extract image sequence and steering_speed (if applicable)
+        image_seq = observations['image'].to(self.device)  # Shape: [batch_size, seq_len, C, H, W]
+        
+        batch_size, seq_len, C, H, W = image_seq.shape
+        
+        # Reshape to process through the backbone
+        images = image_seq.view(batch_size * seq_len, C, H, W)
+        
+        # Extract features using the YOLOv8 backbone
+        with th.no_grad():
+            backbone_features = self.backbone(images)
+        
+        # Concatenate features from different stages
+        features = th.cat([f.flatten(1) for f in backbone_features], dim=1)  # Shape: [batch_size * seq_len, feature_dim]
+        
+        # Reshape features back to sequence format
+        features_seq = features.view(batch_size, seq_len, -1)
+        
+        # Pass the sequence through the LSTM
+        lstm_output, _ = self.lstm(features_seq)
+        
+        # Use the last output from the LSTM
+        lstm_last_output = lstm_output[:, -1, :]  # Shape: [batch_size, hidden_dim]
+        
+        # Detection features
+        detection_features = self.detector(lstm_last_output)
+        
+        # Segmentation output
+        segmentation_input = lstm_last_output.view(batch_size, -1, 1, 1)  # Reshape for ConvTranspose2d
+        segmentation_output = self.segmenter(segmentation_input)
+        
+        # Final combined features (you can modify this as needed)
+        combined_features = self.combined_fc(detection_features)
+        
+        return combined_features  # Return the combined features or a tuple if you need multiple outputs
+
+import torch as th
+import torch.nn as nn
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from ultralytics import YOLO
+
+class MultiTaskYOLORNN(BaseFeaturesExtractor):
+    '''
+    Multi-task RNN model with YOLOv8 backbone for feature extraction,
+    and an LSTM for sequential modeling.
+    '''
+    def __init__(self, observation_space, features_dim=256, hidden_dim=512, num_layers=1):
+        super(MultiTaskRNN, self).__init__(observation_space, features_dim)
+        
+        # Initialize YOLOv8 model and extract the backbone
+        yolo_model = YOLO('yolov8n.pt')  # Using the nano version for example
+        self.backbone = yolo_model.model.backbone
+        
+        # Optionally freeze backbone parameters
+        for param in self.backbone.parameters():
+            param.requires_grad = False  # Set to True if you want to fine-tune
+        
+        # Determine the output dimension of the backbone
+        with th.no_grad():
+            dummy_input = th.zeros(1, 3, 640, 640)  # Adjust input size as needed
+            backbone_outputs = self.backbone(dummy_input)
+            # Concatenate outputs from different stages
+            backbone_output = th.cat([f.flatten(1) for f in backbone_outputs], dim=1)
+            backbone_output_dim = backbone_output.shape[1]
+        
+        # LSTM for sequential modeling
+        self.lstm = nn.LSTM(input_size=backbone_output_dim, hidden_size=hidden_dim,
+                            num_layers=num_layers, batch_first=True)
+        
+        # Detection head
+        self.detector = nn.Sequential(
+            nn.Linear(hidden_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, features_dim),
+        )
+        
+        # Segmentation head
+        self.segmenter = nn.Sequential(
+            nn.ConvTranspose2d(hidden_dim, 256, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, 64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
+            nn.Sigmoid(),
+        )
+        
+        # Final combined fully connected layer
+        self.combined_fc = nn.Sequential(
+            nn.Linear(features_dim, features_dim),
+            nn.ReLU(),
+        )
+        
+        # Device setup
+        self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
+        self.to(self.device)
+    
+    def forward(self, observations):
+        # Extract image sequence and steering_speed (if applicable)
+        image_seq = observations['image'].to(self.device)  # Shape: [batch_size, seq_len, C, H, W]
+        
+        batch_size, seq_len, C, H, W = image_seq.shape
+        
+        # Reshape to process through the backbone
+        images = image_seq.view(batch_size * seq_len, C, H, W)
+        
+        # Extract features using the YOLOv8 backbone
+        with th.no_grad():
+            backbone_features = self.backbone(images)
+        
+        # Concatenate features from different stages
+        features = th.cat([f.flatten(1) for f in backbone_features], dim=1)  # Shape: [batch_size * seq_len, feature_dim]
+        
+        # Reshape features back to sequence format
+        features_seq = features.view(batch_size, seq_len, -1)
+        
+        # Pass the sequence through the LSTM
+        lstm_output, _ = self.lstm(features_seq)
+        
+        # Use the last output from the LSTM
+        lstm_last_output = lstm_output[:, -1, :]  # Shape: [batch_size, hidden_dim]
+        
+        # Detection features
+        detection_features = self.detector(lstm_last_output)
+        
+        # Segmentation output
+        segmentation_input = lstm_last_output.view(batch_size, -1, 1, 1)  # Reshape for ConvTranspose2d
+        segmentation_output = self.segmenter(segmentation_input)
+        
+        # Final combined features (you can modify this as needed)
+        combined_features = self.combined_fc(detection_features)
+        
+        return combined_features  # Return the combined features or a tuple if you need multiple outputs
+
+
 class CustomCNN(BaseFeaturesExtractor):
     """
     Custom CNN feature extractor for handling image input and extracting features.

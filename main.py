@@ -45,7 +45,7 @@ unit = 64
 if __name__ == '__main__':
     with Manager() as manager:
         share_dict = manager.dict()
-        share_dict['car_data'] = str("")
+        # share_dict['car_data'] = str("")
         car_data_window = CarDataWindow(share_dict)
         
         train_process = Process(
@@ -56,6 +56,7 @@ if __name__ == '__main__':
 <<<<<<< HEAD
 <<<<<<< HEAD
                 "timesteps": 1000000,
+<<<<<<< HEAD
 <<<<<<< HEAD
                 "save_timesteps": 64*100,
 =======
@@ -82,6 +83,9 @@ if __name__ == '__main__':
             train_process.terminate()
 =======
                 "save_timesteps": unit*50,
+=======
+                "save_timesteps": unit*100,
+>>>>>>> 4d22cdf ([UPDATE] RewardTask, RoadLine)
                 "n_steps": unit*5,
                 "batch_size": unit,
                 "share_dict": share_dict
