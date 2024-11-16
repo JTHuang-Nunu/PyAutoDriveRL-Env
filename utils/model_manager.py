@@ -1,10 +1,12 @@
 import os
-import torch
 from datetime import datetime
-from utils.logger import logger
 import numpy as np
+from stable_baselines3 import PPO, SAC
+from CarRLEnvironment import CarRLEnvironment
+from CarDataService import CarSocketService
 from utils.logger import logger
-class Loader:
+
+class ModelManager:
     def __init__(self):
         self.model_dir = None
         self.model_curr_dir = None
@@ -27,18 +29,21 @@ class Loader:
         latest
         """
         # Set the model type
-        model_name = None
         if type == 'best':
-            model_name = 'best_model.pth'
+            weight_name = 'best_model.pth'
         elif type == 'latest':
-            model_name = 'latest_model.pth'
+            weight_name = 'latest_model.pth'
 
-        # Search for the specific model 
-        for i in sorted(os.listdir(self.model_dir),reverse=True):
-            path = os.path.join(self.model_dir, i)
-            if os.path.isdir(path):
-                if os.path.exists(os.path.join(path,model_name)):
-                    model_path = os.path.join(path, model_name)
+        subdirs = sorted(
+            [d for d in os.listdir(self.model_dir) if d.startswith(model_name)],
+            reverse=True
+        )
+
+        for subdir in subdirs:
+            subdir_path = os.path.join(self.model_dir, subdir)
+            if os.path.isdir(subdir_path):
+                model_path = os.path.join(subdir_path, weight_name)
+                if os.path.exists(model_path):
                     logger.info(f"Loading model from: {model_path}")
                     return model_path
         return None
@@ -53,16 +58,16 @@ class Loader:
             latest_path = os.path.join(self.model_curr_dir, "latest_model.pth")
             model.save(latest_path)
             logger.info(f"Latest model saved to: {latest_path}")
-            # bak the latest model
-            latest_path_bak = os.path.join(self.model_dir, "latest_model.pth")
-            model.save(latest_path_bak)
+            # # bak the latest model
+            # latest_path_bak = os.path.join(self.model_dir, "latest_model.pth")
+            # model.save(latest_path_bak)
         elif type == 'best':
             best_path = os.path.join(self.model_curr_dir, "best_model.pth")
             model.save(best_path)
             logger.info(f"Best model saved to: {best_path}")
-            # bak the best model
-            best_path_bak = os.path.join(self.model_dir, "best_model.pth")
-            model.save(best_path_bak)
+            # # bak the best model
+            # best_path_bak = os.path.join(self.model_dir, "best_model.pth")
+            # model.save(best_path_bak)
 
         else:
             raise ValueError("Invalid mode. Choose from 'latest' or 'best'.")
@@ -90,3 +95,31 @@ class Loader:
             return model
         else:
             raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+
+if __name__ == "__main__":
+    share_dict = dict()
+    car_service = CarSocketService(system_delay=0.1, )  # Modify system delay to match the environment
+    env = CarRLEnvironment(car_service, share_dict)  # Adjust frame_stack_num based on how many frames to stack
+    model = PPO("MultiInputPolicy",env)
+    # 初始化 Loader 实例
+    loader = ModelManager()
+
+    # 设置模型主目录
+    base_dir = "runs/"
+    loader.set_model_dir(base_dir)
+
+    # 创建新的模型目录
+    model_name = "PPO"
+    model_dir = loader.create_model_directory(model_name)
+    print(f"Model directory created at: {model_dir}")
+
+    # 获取最新的模型路径并加载模型
+    latest_model_path = loader.get_latest_model(model_name, type='latest')
+    if latest_model_path:
+        model = loader.load_model(model, latest_model_path)
+
+    # 获取最佳的模型路径并加载模型
+    best_model_path = loader.get_latest_model(model_name, type='best')
+    if best_model_path:
+        model = loader.load_model(model, best_model_path)
