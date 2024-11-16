@@ -139,17 +139,16 @@ class TrackingTask:
             return 0.0
 
         # ========Reward based on speed range============
-        if speed <= self.min_speed <= self.max_speed:
+        if self.min_speed <= speed <= self.max_speed:
             # Reward for maintaining speed within the range
             speed_reward += 0.1 * (1 - abs(speed - (self.min_speed + self.max_speed) / 2) / ((self.max_speed - self.min_speed) / 2))
+            self.low_speed_count = 0
         elif speed < self.min_speed:
             # Low-speed delay counter
             self.low_speed_count += 1
             if self.low_speed_count > self.low_speed_delay_threshold:
                 deviation = (self.min_speed - speed) / self.min_speed
                 speed_reward -= 0.1 * deviation
-        else:
-            self.low_speed_count = 0
 
         if speed > self.max_speed:
             # High-speed delay counter
