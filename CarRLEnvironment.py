@@ -11,9 +11,8 @@ from gymnasium import spaces
 from CarDataService import CarSocketService, CarData
 from CarDataWindow import CarDataWindow
 from utils.image_process import ImageProcessing
-from RewardTask import MixTask
-import cv2
-import scipy.linalg as la
+from utils.RewardTask import MixTask
+
 class CarRLEnvironment(gym.Env):
     def __init__(self, car_service: CarSocketService, share_dict):
         """
@@ -93,6 +92,8 @@ class CarRLEnvironment(gym.Env):
         self.__check_done_use_last_timestamp = car_data.timestamp
         self.__check_done_use_progress = 0
 
+        # Reward Task reset
+        self.reward_task.reset()
         return self.current_observation, {}
 
     def step(self, action):
@@ -130,8 +131,11 @@ class CarRLEnvironment(gym.Env):
             "steering_speed": np.array([current_steering, current_speed], dtype=np.float32)
         }
 
-        reward,_ = self._compute_reward_3(car_data)
-        self.done = self._check_done(car_data)
+        reward, done = self._compute_reward_3(car_data)
+        if done:
+            self.done = True
+        else:
+            self.done = self._check_done(car_data)
 
         # ===== debug message =====
         # Show the image
@@ -144,12 +148,15 @@ class CarRLEnvironment(gym.Env):
         # self._print_debug_info(car_data)  # Debugging info for telemetry and time intervals
         # =========================
 
-        # Update timestamp and calculate FPS
+        #  =====Update timestamp and calculate FPS=====
         time_diff = self.car_service.carData.timestamp - self._last_timestamp
         fps = int(1000 / time_diff) if time_diff > 0 else 0
-        print(f"\r{fps: 05.1f} fps -> unity world {fps/car_data.time_speed_up_scale: 05.1f} fps, reward: {reward: 05.2f}", end="")
+        print(f"\r{fps: 05.1f} fps -> unity world {fps/car_data.time_speed_up_scale: 05.1f} fps, reward: {reward: 05.2f}", end="\t")
         self._last_timestamp = car_data.timestamp
+        #  ============================================
+        
         return self.current_observation, reward, self.done, False, {}
+    
 
     def _clear_console(self):
         """
@@ -226,8 +233,8 @@ class CarRLEnvironment(gym.Env):
 
         return reward
     def _compute_reward_3(self, car_data: CarData):
-        reward = self.reward_task.reward(car_data)
-        return reward
+        reward, done = self.reward_task.reward(car_data)
+        return reward, done
 
 
 
@@ -265,6 +272,8 @@ class CarRLEnvironment(gym.Env):
         """
         resized_image = cv2.resize(image, (64, 64))
         lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
+        # grayscale_image = np.mean(resized_image, axis=2, keepdims=True) # Origin Method
+
         return lane_processed_imag.astype(np.uint8)
 
     def render(self, mode="human"):

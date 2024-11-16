@@ -1,9 +1,9 @@
 import os
 import torch
 from datetime import datetime
-from logger import logger
+from utils.logger import logger
 import numpy as np
-from logger import logger
+from utils.logger import logger
 class Loader:
     def __init__(self):
         self.model_dir = None

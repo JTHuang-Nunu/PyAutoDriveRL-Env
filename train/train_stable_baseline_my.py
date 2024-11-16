@@ -1,5 +1,5 @@
 import os
-from logger import logger
+from utils.logger import logger
 from datetime import datetime
 
 import numpy as np
@@ -12,7 +12,7 @@ from gymnasium import spaces
 
 from CarRLEnvironment import CarRLEnvironment
 from CarDataService import CarSocketService
-from CNNTask import MultiTaskCNN, CustomCNN
+from utils.CNNTask import *
 from load_model import *
 
 loader = Loader()
