@@ -11,7 +11,7 @@ from gymnasium import spaces
 from CarDataService import CarSocketService, CarData
 from CarDataWindow import CarDataWindow
 from utils.image_process import ImageProcessing
-from utils.RewardTask import MixTask
+from utils.reward_task import MixTask
 
 class CarRLEnvironment(gym.Env):
     def __init__(self, car_service: CarSocketService, share_dict):

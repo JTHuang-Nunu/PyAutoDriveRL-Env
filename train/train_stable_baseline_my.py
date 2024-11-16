@@ -12,8 +12,8 @@ from gymnasium import spaces
 
 from CarRLEnvironment import CarRLEnvironment
 from CarDataService import CarSocketService
-from utils.CNNTask import *
-from load_model import *
+from utils.cnn_task import *
+from utils.load_model import *
 
 loader = Loader()
 # logger.basicConfig(level=logger.INFO, format="%(levelname)s - %(message)s")
