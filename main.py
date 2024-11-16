@@ -36,7 +36,8 @@ if __name__ == '__main__':
                 "save_timesteps": unit * 100,
                 "n_steps": unit * 5,
                 "batch_size": unit,
-                "share_dict": share_dict
+                "share_dict": share_dict,
+                "image_wh_size": 128
             }
         )
         train_process.start()

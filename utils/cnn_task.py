@@ -52,7 +52,7 @@ class MultiTaskCNN(BaseFeaturesExtractor):
 
         # 提取圖像輸入和非圖像輸入 (steering_speed)
         image = observations['image'].to(self.device)
-        image = image.repeat(1, 3, 1, 1)
+        # image = image.repeat(1, 3, 1, 1)
         steering_speed = observations['steering_speed'].to(self.device)
 
         # Backbone 提取圖像特徵

@@ -9,12 +9,11 @@ from collections import deque
 from gymnasium import spaces
 
 from CarDataService import CarSocketService, CarData
-from CarDataWindow import CarDataWindow
 from utils.image_process import ImageProcessing
 from utils.reward_task import MixTask
 
 class CarRLEnvironment(gym.Env):
-    def __init__(self, car_service: CarSocketService, share_dict):
+    def __init__(self, car_service: CarSocketService, share_dict, image_wh_size=64):
         """
         Initialize the CarRL environment with a given car service and number of frames to stack.
 
@@ -26,10 +25,11 @@ class CarRLEnvironment(gym.Env):
 
         self.car_service = car_service
         self.car_service.start_with_nothing()
+        self.image_size = image_wh_size
 
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
-            "image": spaces.Box(low=0, high=255, shape=(64, 64, 1), dtype=np.uint8),
+            "image": spaces.Box(low=0, high=255, shape=(self.image_size, self.image_size, 3), dtype=np.uint8),
             "steering_speed": spaces.Box(low=np.array([-25.0, 0.0]), high=np.array([25.0, 100.0]), dtype=np.float32)
         })
 
@@ -77,7 +77,7 @@ class CarRLEnvironment(gym.Env):
         car_data = self.car_service.carData
 
         # Preprocess the image and initialize the frame history
-        image = car_data.image if car_data.image is not None else np.zeros((64, 64, 3), dtype=np.float32)
+        image = car_data.image if car_data.image is not None else np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
         processed_image = self._preprocess_observation(image)
 
         # Initialize observation with steering and speed
@@ -120,7 +120,7 @@ class CarRLEnvironment(gym.Env):
         self.progress_queue.append(float(car_data.progress))
 
         # Process and stack images
-        image = car_data.image if car_data.image is not None else np.zeros((64, 64, 3), dtype=np.float32)
+        image = car_data.image if car_data.image is not None else np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
         processed_image = self._preprocess_observation(image)
 
         current_steering = float(car_data.steering_angle)
@@ -270,11 +270,12 @@ class CarRLEnvironment(gym.Env):
         Returns:
             processed_image (numpy.ndarray): The processed grayscale image.
         """
-        resized_image = cv2.resize(image, (64, 64))
+        resized_image = cv2.resize(image, (self.image_size, self.image_size))
         lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
+        enhanced_image = ImageProcessing.enhance_red_objects(lane_processed_imag)
         # grayscale_image = np.mean(resized_image, axis=2, keepdims=True) # Origin Method
 
-        return lane_processed_imag.astype(np.uint8)
+        return enhanced_image.astype(np.uint8)
 
     def render(self, mode="human"):
         """

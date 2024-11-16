@@ -20,7 +20,7 @@ loader = ModelManager()
 
 
 
-def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=None, n_steps=None,batch_size=None, share_dict=None, log_path='log/'):
+def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=None, n_steps=None,batch_size=None, share_dict=None, log_path='log/', image_wh_size=128):
     """
     Parameters:
         strategy (str): The RL strategy to use ('PPO' or 'SAC').
@@ -34,7 +34,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     # Initialize the CarSocketService
     car_service = CarSocketService(system_delay=0.1, )  # Modify system delay to match the environment
     # Initialize the custom RL environment
-    env = CarRLEnvironment(car_service, share_dict)  # Adjust frame_stack_num based on how many frames to stack
+    env = CarRLEnvironment(car_service, share_dict, image_wh_size)  # Adjust frame_stack_num based on how many frames to stack
 
     # Check if the environment follows the Gym standards
     check_env(env)
