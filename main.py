@@ -33,11 +33,11 @@ if __name__ == '__main__':
                 "strategy": "PPO",
                 "model_mode": "load_best",
                 "timesteps": 1000000,
-                "save_timesteps": unit * 100,
-                "n_steps": unit * 5,
+                "save_timesteps": unit * 200,
+                "n_steps": unit * 10,
                 "batch_size": unit,
                 "share_dict": share_dict,
-                "image_wh_size": 128
+                "image_wh_size": 256
             }
         )
         train_process.start()

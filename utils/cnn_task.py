@@ -164,11 +164,6 @@ class MultiTaskRNN(BaseFeaturesExtractor):
         
         return combined_features  # Return the combined features or a tuple if you need multiple outputs
 
-import torch as th
-import torch.nn as nn
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from ultralytics import YOLO
-
 class MultiTaskYOLORNN(BaseFeaturesExtractor):
     '''
     Multi-task RNN model with YOLOv8 backbone for feature extraction,
