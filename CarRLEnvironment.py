@@ -4,13 +4,14 @@ import numpy as np
 import cv2
 import eventlet
 import gymnasium as gym
+import torch as th 
 
 from collections import deque
 from gymnasium import spaces
 
 from CarDataService import CarSocketService, CarData
-from utils.image_process import ImageProcessing
-from utils.reward_task import MixTask
+from util.image_process import ImageProcessing
+from util.reward_task import MixTask
 
 class CarRLEnvironment(gym.Env):
     def __init__(self, car_service: CarSocketService, share_dict, image_wh_size=64):
@@ -54,6 +55,10 @@ class CarRLEnvironment(gym.Env):
                                         'progress': 1.0,
                                         'tracking': 1.0,
                                         'collision': 1.0,})
+        
+        self.seq_len = 4
+        self.frame_buffer = deque(maxlen=self.seq_len)
+
         # Wait for connection and data
         while not (self.car_service.client_connected and self.car_service.initial_data_received):
             eventlet.sleep(self.system_delay)
@@ -252,7 +257,7 @@ class CarRLEnvironment(gym.Env):
         if car_data.y < 0 or car_data.progress >= 100.0:
             return True
 
-        if car_data.timestamp - self.__check_done_use_last_timestamp > 30_000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
+        if car_data.timestamp - self.__check_done_use_last_timestamp > 10000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
             if car_data.progress - self.__check_done_use_progress < 0.001:
                 return True
             self.__check_done_use_last_timestamp = car_data.timestamp
@@ -273,9 +278,9 @@ class CarRLEnvironment(gym.Env):
         resized_image = cv2.resize(image, (self.image_size, self.image_size))
         lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
         enhanced_image = ImageProcessing.enhance_red_objects(lane_processed_imag)
-        # grayscale_image = np.mean(resized_image, axis=2, keepdims=True) # Origin Method
 
         return enhanced_image.astype(np.uint8)
+        
 
     def render(self, mode="human"):
         """

@@ -3,7 +3,7 @@ import signal
 from train.train_stable_baseline_my import *
 from multiprocessing import Process, Manager
 from CarDataWindow import CarDataWindow
-from utils.logger import logger
+from util.logger import logger
 # train_car_rl(strategy='PPO', model_mode='new', timesteps=100000, save_timesteps=10)
 # train_car_rl(strategy='PPO', model_mode='load_best', timesteps=100000, save_timesteps=10, n_steps=1000)
 
@@ -27,23 +27,39 @@ if __name__ == '__main__':
 
         car_data_window = CarDataWindow(share_dict)
 
+        # train_process = Process(
+        #     target=train_car_rl,
+        #     kwargs={
+        #         "strategy": "PPO",
+        #         "model_mode": "load_best",
+        #         "timesteps": 1000000,
+        #         "save_timesteps": unit * 200,
+        #         "n_steps": unit * 10,
+        #         "batch_size": unit,
+        #         "share_dict": share_dict,
+        #         "image_wh_size": 128
+        #     }
+        # )
         train_process = Process(
             target=train_car_rl,
             kwargs={
-                "strategy": "PPO",
+                "strategy": "SAC",
                 "model_mode": "load_best",
-                "timesteps": 1000000,
+                "timesteps": 100000,
                 "save_timesteps": unit * 200,
-                "n_steps": unit * 10,
-                "batch_size": unit,
+                # "n_steps": unit * 10,
+                "batch_size": unit*10,
                 "share_dict": share_dict,
-                "image_wh_size": 256
+                "image_wh_size": 128
             }
         )
-        train_process.start()
+       
 
         try:
-            car_data_window.start()
+            train_process.start()
+            train_process.join()
+            # car_data_window.start()
+            # pass
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt detected. Stopping processes...")
             signal_handler(None, None)

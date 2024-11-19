@@ -1,5 +1,5 @@
 import os
-from utils.logger import logger
+from util.logger import logger
 from datetime import datetime
 
 import numpy as np
@@ -12,8 +12,8 @@ from gymnasium import spaces
 
 from CarRLEnvironment import CarRLEnvironment
 from CarDataService import CarSocketService
-from utils.cnn_task import *
-from utils.model_manager import *
+from util.cnn_task import *
+from util.model_manager import *
 
 loader = ModelManager()
 # logger.basicConfig(level=logger.INFO, format="%(levelname)s - %(message)s")
@@ -45,7 +45,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     #     "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
     # }
     policy_kwargs = {
-        "features_extractor_class": MultiTaskCNN,
+        "features_extractor_class": CustomYOLOv5n,
         "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
     }
     
@@ -64,8 +64,9 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
             model = SAC("MultiInputPolicy",
                         env, 
                         policy_kwargs=policy_kwargs, 
-                        buffer_size=1_000_000, 
-                        verbose=0,
+                        buffer_size=100000, 
+                        verbose=1,
+                        batch_size=batch_size,
                         tensorboard_log=log_path)
         else:
             raise ValueError("Invalid strategy.")
