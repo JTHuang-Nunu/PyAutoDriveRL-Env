@@ -36,5 +36,5 @@ class CarDataWindow:
         """
         Stop the GUI thread.
         """
-        if self.window is not None and self.window.winfo_exists():
+        if self.window is not None:
             self.window.destroy()

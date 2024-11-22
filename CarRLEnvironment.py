@@ -52,9 +52,11 @@ class CarRLEnvironment(gym.Env):
 
         self.shared_dict = share_dict
         self.reward_task = MixTask(task_weights={
-                                        'progress': 1.0,
-                                        'tracking': 1.0,
-                                        'collision': 1.0,})
+            'progress': 0.7,
+            'tracking': 1.0,
+            'collision': 1.0,
+            'anomaly': 1.0
+        },)
         
         self.seq_len = 4
         self.frame_buffer = deque(maxlen=self.seq_len)
@@ -136,11 +138,8 @@ class CarRLEnvironment(gym.Env):
             "steering_speed": np.array([current_steering, current_speed], dtype=np.float32)
         }
 
-        reward, done = self._compute_reward_3(car_data)
-        if done:
-            self.done = True
-        else:
-            self.done = self._check_done(car_data)
+        reward = self._compute_reward_3(car_data)
+        self.done = self._check_done(car_data)
 
         # ===== debug message =====
         # Show the image
@@ -238,8 +237,8 @@ class CarRLEnvironment(gym.Env):
 
         return reward
     def _compute_reward_3(self, car_data: CarData):
-        reward, done = self.reward_task.reward(car_data)
-        return reward, done
+        reward = self.reward_task.reward(car_data)
+        return reward
 
 
 
@@ -254,6 +253,9 @@ class CarRLEnvironment(gym.Env):
         Returns:
             done (bool): Whether the episode is finished.
         """
+        if self.reward_task.done(car_data):
+            return True
+        
         if car_data.y < 0 or car_data.progress >= 100.0:
             return True
 

@@ -332,3 +332,104 @@ class CustomYOLOv5n(BaseFeaturesExtractor):
         combined = th.cat([yolo_processed, steering_speed], dim=1)
         
         return self.combined_fc(combined)
+    
+
+class ImprovedDrivingCNN(BaseFeaturesExtractor):
+    def __init__(self, observation_space: spaces.Dict, features_dim: int = 256):
+        super(ImprovedDrivingCNN, self).__init__(observation_space, features_dim)
+        
+        n_input_channels = observation_space['image'].shape[0]
+        
+        # 1. 使用空洞卷積來增加感受野，更好地捕捉車道線
+        self.cnn = nn.Sequential(
+            # 初始特征提取
+            nn.Conv2d(n_input_channels, 32, kernel_size=7, stride=2, padding=3),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            
+            # 空洞卷積層，用於捕捉更大範圍的特徵
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=2, dilation=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            
+            # 深度可分離卷積，減少參數量同時保持性能
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1, groups=64),
+            nn.Conv2d(64, 128, kernel_size=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            
+            # 注意力機制
+            SpatialAttention(),
+            
+            # 最終特征提取
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            
+            nn.AdaptiveAvgPool2d((4, 4)),  # 自適應池化到固定大小
+            nn.Flatten()
+        )
+        
+        # 計算CNN輸出維度
+        with th.no_grad():
+            sample_input = th.zeros(1, *observation_space['image'].shape)
+            cnn_output_dim = self.cnn(sample_input).shape[1]
+        
+        # 添加殘差連接的全連接層
+        self.fc = ResidualFC(cnn_output_dim + 2, features_dim)
+
+        # Set up device
+        self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
+        self.to(self.device)
+
+    def forward(self, observations):
+        # 提取圖像和其他特徵
+        image = observations['image'].to(self.device)
+        steering = observations['steering_speed'].to(self.device)
+        
+        # CNN特徵提取
+        cnn_features = self.cnn(image)
+        
+        # 合併所有特徵
+        combined_features = th.cat([cnn_features, steering], dim=1)
+        
+        # 通過殘差全連接層
+        return self.fc(combined_features)
+
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super(SpatialAttention, self).__init__()
+        self.conv = nn.Conv2d(2, 1, kernel_size=7, padding=3)
+        
+    def forward(self, x):
+        # 計算空間注意力權重
+        avg_pool = th.mean(x, dim=1, keepdim=True)
+        max_pool, _ = th.max(x, dim=1, keepdim=True)
+        attention = th.cat([avg_pool, max_pool], dim=1)
+        attention = F.sigmoid(self.conv(attention))
+        
+        return x * attention
+
+class ResidualFC(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(ResidualFC, self).__init__()
+        
+        self.fc1 = nn.Linear(input_dim, output_dim)
+        self.fc2 = nn.Linear(output_dim, output_dim)
+        
+        # 如果輸入維度不等於輸出維度，添加一個投影層
+        self.projection = None
+        if input_dim != output_dim:
+            self.projection = nn.Linear(input_dim, output_dim)
+        
+        self.dropout = nn.Dropout(0.1)
+        self.layer_norm = nn.LayerNorm(output_dim)
+        
+    def forward(self, x):
+        identity = x if self.projection is None else self.projection(x)
+        
+        out = F.relu(self.fc1(x))
+        out = self.dropout(out)
+        out = self.fc2(out)
+        out = self.layer_norm(out + identity)
+        return F.relu(out)

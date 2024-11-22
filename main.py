@@ -46,19 +46,18 @@ if __name__ == '__main__':
                 "strategy": "SAC",
                 "model_mode": "load_best",
                 "timesteps": 100000,
-                "save_timesteps": unit * 200,
+                "save_timesteps": unit * 100,
                 # "n_steps": unit * 10,
-                "batch_size": unit*10,
+                "batch_size": unit,
                 "share_dict": share_dict,
                 "image_wh_size": 128
             }
         )
-       
-
         try:
+            
             train_process.start()
+            car_data_window.start()
             train_process.join()
-            # car_data_window.start()
             # pass
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt detected. Stopping processes...")

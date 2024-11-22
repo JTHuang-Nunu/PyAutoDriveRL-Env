@@ -20,7 +20,7 @@ loader = ModelManager()
 
 
 
-def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=None, n_steps=None,batch_size=None, share_dict=None, log_path='log/', image_wh_size=128):
+def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1000000, save_timesteps=None, n_steps=None,batch_size=None, share_dict=None, image_wh_size=128):
     """
     Parameters:
         strategy (str): The RL strategy to use ('PPO' or 'SAC').
@@ -32,7 +32,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     # -------------------------------------------------
     # ------------------- Initialize ------------------
     # Initialize the CarSocketService
-    car_service = CarSocketService(system_delay=0.1, )  # Modify system delay to match the environment
+    car_service = CarSocketService(system_delay=0.1)  # Modify system delay to match the environment
     # Initialize the custom RL environment
     env = CarRLEnvironment(car_service, share_dict, image_wh_size)  # Adjust frame_stack_num based on how many frames to stack
 
@@ -45,11 +45,10 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     #     "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
     # }
     policy_kwargs = {
-        "features_extractor_class": CustomYOLOv5n,
+        "features_extractor_class": ImprovedDrivingCNN,
         "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
     }
-    
-
+    log_path = f"./log/{strategy}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     # Choose between SAC or PPO model (PPO used here for example)
     try: 
         if strategy == 'PPO':
@@ -63,7 +62,9 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
         elif strategy == 'SAC':
             model = SAC("MultiInputPolicy",
                         env, 
-                        policy_kwargs=policy_kwargs, 
+                        policy_kwargs=policy_kwargs,
+                        learning_starts = 20, # how many steps of the model to collect transitions for before learning starts
+                        learning_rate=3e-4,
                         buffer_size=100000, 
                         verbose=1,
                         batch_size=batch_size,
@@ -117,7 +118,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     early_stopping_counter = 0
     patience = 100  # Patience for early stopping From 10 to 100
 
-    # -------------------------------------------------
+    # =================================================
     # ----------------- Training Loop -----------------
     # Initialize observation and info
 
@@ -153,8 +154,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
         logger.error("Model not found. Training failed.")
         return
 
-    # -------------------------------------------------
-    # -------------------------------------------------
+    # =================================================
 
 def evaluate(model, env, n_episodes=5):
     total_rewards = []

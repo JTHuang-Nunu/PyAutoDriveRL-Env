@@ -1,69 +1,113 @@
 import numpy as np
 from util.logger import logger
 from collections import deque
+from CarDataService import CarData
+import numpy as np
+from enum import Enum
+from util.logger import logger
+from collections import deque
+from CarDataService import CarData
+
+# Define UnitTestMode Enum
+class UnitTestMode(Enum):
+    DISABLE = "Disable"
+    PROGRESS = "Progress"
+    TRACKING = "Tracking"
+    COLLISION = "Collision"
+    ANOMALY = "Anomaly"
 
 class MixTask:
-    def __init__(self, task_weights: dict):
+    def __init__(self, task_weights: dict, unit_test: UnitTestMode = UnitTestMode.DISABLE):
         '''
         Initialize the tasks with the given weights
+
+        Unit test modes:
+        - Disable: Run all tasks
+        - Progress: Test only ProgressTask
+        - Tracking: Test only TrackingTask
+        - Collision: Test only CollisionTask
+        - Anomaly: Test only AnomalyHandlingTask
         '''
-        self.task_weights = task_weights or {
-            'progress': 1.0,
-            'tracking': 1.0,
-            'collision': 1.0,
-        }
+        self.task_weights = task_weights
         self.ProgressTask = MaximizeProgressTask(progress_reward=100.0)
-        self.TrackingTask = TrackingTask(min_speed=5.0, max_speed=30.0, speed_stability_threshold=1)
-        self.CollisionTask = CollisionTask(collision_penalty=-10.0, max_obstacle=5)
+        self.TrackingTask = TrackingTask(min_speed=3.0, max_speed=25.0, speed_stability_threshold=1)
+        self.CollisionTask = CollisionTask(collision_penalty=-10.0)
+        self.AnomalyHandlingTask = AnomalyHandlingTask(anomaly_penalty=-10.0)
         
+        self.unit_test = unit_test
+        if unit_test == UnitTestMode.DISABLE:
+            logger.debug(f"***********************************")
+            logger.debug(f"   Unit test mode: {unit_test.value}    ")
+            logger.debug(f"***********************************")
         # Initialize rewards
         self.progress_reward = -np.inf
         self.tracking_reward = -np.inf
         self.collision_reward = -np.inf
+        self.anomaly_reward = -np.inf
 
         logger.debug('Task Initialized')
 
     def reward(self, car_data) -> tuple[float, bool]:
         '''
         Calculate the reward for each task and return the total reward
-        - Calcuates the reward for each task
-        - Sum the rewards
-        - Check if the episode is done
-        - Return the total reward and done flag
         '''
-        # Calculate individual task rewards
-        self.progress_reward = self.task_weights['progress'] * self.ProgressTask.reward(car_data)
-        self.tracking_reward = self.task_weights['tracking'] * self.TrackingTask.reward(car_data)
-        self.collision_reward = self.task_weights['collision'] * self.CollisionTask.reward(car_data)
-
-        # Total reward calculation
-        rewards = (
-            self.progress_reward,
-            self.tracking_reward,
-            self.collision_reward,
+        # Define the tasks
+        tasks = (
+            (UnitTestMode.PROGRESS, 'progress', self.ProgressTask),
+            (UnitTestMode.TRACKING, 'tracking', self.TrackingTask),
+            (UnitTestMode.COLLISION, 'collision', self.CollisionTask),
+            (UnitTestMode.ANOMALY, 'anomaly', self.AnomalyHandlingTask),
         )
-        total_reward = sum(rewards)
+
+        # Calculate individual task rewards
+        if self.unit_test == UnitTestMode.DISABLE:
+            rewards = []
+            for task_mode, weight_key, task_instance in tasks:
+                reward = self.task_weights[weight_key] * task_instance.reward(car_data)
+                setattr(self, f"{weight_key}_reward", reward)  # Dynamically set the corresponding attribute
+                rewards.append(reward)
+            total_reward = sum(rewards)
+        else:
+            # Find the task instance for the unit test
+            task = next((t for t in tasks if t[0] == self.unit_test), None)
+            if task:
+                _, weight_key, task_instance = task
+                reward = self.task_weights[weight_key] * task_instance.reward(car_data)
+                setattr(self, f"{weight_key}_reward", reward)  # Dynamically set the corresponding attribute
+                total_reward = reward
+            else:
+                total_reward = 0  # Default reward if no matching task is found
 
         # Log the rewards
         self.log_rewards()
 
-        # Check if the episode is done
-        done = self.done(car_data)
-        if done:
-            total_reward = -10  # Penalty if the episode is done due to failure conditions
-
-        return total_reward, done
+        return total_reward
 
     def done(self, car_data) -> bool:
         '''
         Check termination conditions from all tasks
         '''
-        done = (
-            self.ProgressTask.done(car_data) or
-            self.CollisionTask.done(car_data) or
-            self.TrackingTask.done(car_data)
-        )
+        # Task mapping for done checks
+        task_done_mapping = {
+            UnitTestMode.PROGRESS: self.ProgressTask.done,
+            UnitTestMode.TRACKING: self.TrackingTask.done,
+            UnitTestMode.COLLISION: self.CollisionTask.done,
+            UnitTestMode.ANOMALY: self.AnomalyHandlingTask.done,
+        }
+
+        # Check if done based on the unit_test
+        if self.unit_test in task_done_mapping:
+            done = task_done_mapping[self.unit_test](car_data)
+        else:
+            done = (
+                self.ProgressTask.done(car_data) or
+                self.CollisionTask.done(car_data) or
+                self.TrackingTask.done(car_data) or
+                self.AnomalyHandlingTask.done(car_data)
+            )
+
         return done
+
 
     def reset(self):
         '''
@@ -72,14 +116,28 @@ class MixTask:
         self.ProgressTask.reset()
         self.TrackingTask.reset()
         self.CollisionTask.reset()
+        self.AnomalyHandlingTask.reset()
     
     def log_rewards(self):
         '''
         Log the rewards for each task
         '''
-        logger.debug(f"Progress: {self.progress_reward:.2f} \
-                       Tracking: {self.tracking_reward:.2f}, \
-                       Collision: {self.collision_reward:.2f}")
+        # Reward mapping
+        reward_mapping = {
+            UnitTestMode.DISABLE: f"Progress: {self.progress_reward:.2f} "
+                                f"Tracking: {self.tracking_reward:.2f} "
+                                f"Collision: {self.collision_reward:.2f} "
+                                f"Anomaly: {self.anomaly_reward:.2f}",
+            UnitTestMode.PROGRESS: f"Progress: {self.progress_reward:.2f}",
+            UnitTestMode.TRACKING: f"Tracking: {self.tracking_reward:.2f}",
+            UnitTestMode.COLLISION: f"Collision: {self.collision_reward:.2f}",
+            UnitTestMode.ANOMALY: f"Anomaly: {self.anomaly_reward:.2f}",
+        }
+
+        # Log the reward based on the unit_test
+        logger.debug(reward_mapping.get(self.unit_test, "Unknown Unit Test Mode"))
+
+
 class MaximizeProgressTask:
     def __init__(self, progress_reward: float = 100.0):
         self._progress_reward = progress_reward
@@ -125,7 +183,7 @@ class TrackingTask:
 
 
 
-    def reward(self, car_data) -> float:
+    def reward(self, car_data: CarData) -> float:
         # Get current speed
         speed = np.linalg.norm(car_data.speed)
         self.speed_queue.append(speed)
@@ -148,8 +206,7 @@ class TrackingTask:
             self.low_speed_count += 1
             if self.low_speed_count > self.low_speed_delay_threshold:
                 deviation = (self.min_speed - speed) / self.min_speed
-                speed_reward -= 0.1 * deviation
-
+                speed_reward -= 0.3 * deviation
         if speed > self.max_speed:
             # High-speed delay counter
             self.high_speed_count += 1
@@ -158,13 +215,33 @@ class TrackingTask:
                 speed_reward -= 0.05 * deviation
         # ==============================================
 
-
         # ======Calculate speed stability reward========
         if len(self.speed_queue) == self.speed_queue.maxlen:
             speed_std = np.std(self.speed_queue)
             if speed_std < self.speed_stability_threshold:
                 speed_reward += 0.1
         # ==============================================
+
+        # ===========Yaw acceleration reward============
+        yaw_threshold = 10
+        yaw_reward = 0
+        if car_data.pitch > 270 and 360 - car_data.pitch > yaw_threshold: # Go up, pitch [350-335]
+            if car_data.acceleration_z > 0.5: # Encoraging the car to go up
+                yaw_reward += 0.1 * car_data.acceleration_z
+            else:
+                yaw_reward -= 0.1 * car_data.acceleration_z
+
+        if car_data.pitch < 90 and car_data.pitch > yaw_threshold: # Go down, pitch [10-25]
+            if car_data.acceleration_z < 0: # Encoraging the car to go down
+                yaw_reward += 0.1 * abs(car_data.acceleration_z)
+            else:
+                yaw_reward -= 0.1 * abs(car_data.acceleration_z)
+
+        speed_reward  += yaw_reward
+        # ==============================================
+
+        
+
 
         return speed_reward
 
@@ -181,7 +258,7 @@ class TrackingTask:
         self.high_speed_count = 0
     
 class CollisionTask:
-    def __init__(self, collision_penalty: float = -10.0, max_obstacle: int = 5):
+    def __init__(self, collision_penalty: float = -10.0, max_obstacle: int = 3):
         self.collision_penalty = collision_penalty
         self.max_obstacle = max_obstacle
         self._last_obstacle = 0
@@ -193,6 +270,7 @@ class CollisionTask:
         # 检查是否发生碰撞
         if car_data.obstacle_car > self._last_obstacle:
             self._last_obstacle += 1
+            logger.debug("Obstacle collision detected")
             return self.collision_penalty
         return 0.0
 
@@ -203,3 +281,45 @@ class CollisionTask:
 
     def reset(self): 
         self._last_obstacle = 0
+
+class AnomalyHandlingTask:
+    def __init__(self, anomaly_penalty: float = -10.0):
+        self.anomaly_penalty = anomaly_penalty
+        self.finish = False
+        self.anomaly_t_count = 0
+        self.anamaly_t_max = 20
+    def reward(self, car_data: CarData) -> float:
+        '''
+        This reward is "penalty" for anomaly.
+        '''
+
+        return 0.0
+    
+    def done(self, car_data: CarData) -> bool:
+        # Roll penalty
+        if abs(car_data.roll-180) < 178:
+            if self.anomaly_t_count < self.anamaly_t_max:
+                self.anomaly_t_count += 1
+            else:
+                self.finish = True
+                logger.debug("Roll anomaly detected")
+                self.anamaly_t_count = 0
+        
+        # Yaw penalty
+        if car_data.y < 0.4:
+            self.finish = True
+            logger.debug("Y Position anomaly detected")
+
+        if car_data.speed < 0.5:
+            if self.anomaly_t_count < self.anamaly_t_max:
+                self.anomaly_t_count += 1
+            else:
+                self.finish = True
+                logger.debug("Speed anomaly detected")
+                self.anamaly_t_count = 0
+        return self.finish
+        
+
+    def reset(self):
+        self.finish = False
+        self.anomaly_t_count = 0
