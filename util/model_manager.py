@@ -84,17 +84,6 @@ class ModelManager:
             return model
         else:
             raise FileNotFoundError(f"Model file not found: {model_path}")
-    def load_model(self, model, model_path):
-        """
-        載入指定路徑的模型。
-        """
-        if os.path.exists(model_path):
-            print(f"Loading model from: {model_path}")
-            model.load(model_path)
-            # model.eval()
-            return model
-        else:
-            raise FileNotFoundError(f"Model file not found: {model_path}")
         
 
 if __name__ == "__main__":

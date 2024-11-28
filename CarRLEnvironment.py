@@ -31,6 +31,7 @@ class CarRLEnvironment(gym.Env):
         # Observation space includes stacked frames and steering/speed information.
         self.observation_space = spaces.Dict({
             "image": spaces.Box(low=0, high=255, shape=(self.image_size, self.image_size, 3), dtype=np.uint8),
+            "lane": spaces.Box(low=0, high=255, shape=(self.image_size, self.image_size), dtype=np.uint8),
             "steering_speed": spaces.Box(low=np.array([-25.0, 0.0]), high=np.array([25.0, 100.0]), dtype=np.float32)
         })
 
@@ -40,6 +41,7 @@ class CarRLEnvironment(gym.Env):
         # Initialize observation and other variables
         self.current_observation = {
             "image": np.zeros(self.observation_space['image'].shape, dtype=np.uint8),
+            "lane": np.zeros(self.observation_space['image'].shape[:2], dtype=np.uint8),
             "steering_speed": np.zeros(self.observation_space['steering_speed'].shape, dtype=np.float32)
         }
         self.done = False
@@ -90,6 +92,7 @@ class CarRLEnvironment(gym.Env):
         # Initialize observation with steering and speed
         self.current_observation = {
             "image": processed_image,
+            "lane": np.zeros(self.observation_space['image'].shape[:2], dtype=np.uint8),
             "steering_speed": np.array([0.0, 0.0], dtype=np.float32)
         }
 
@@ -130,14 +133,20 @@ class CarRLEnvironment(gym.Env):
         image = car_data.image if car_data.image is not None else np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
         processed_image = self._preprocess_observation(image)
 
+        # Lane CNN
+        resized_image = cv2.resize(image, (self.image_size, self.image_size))
+        lane_processed_imag = ImageProcessing.lane_detection_pipeline_forCNN(resized_image)
+
         current_steering = float(car_data.steering_angle)
         current_speed = min(float(car_data.speed), 100.0)
 
         self.current_observation = {
             "image": processed_image,
+            "lane": lane_processed_imag,
             "steering_speed": np.array([current_steering, current_speed], dtype=np.float32)
         }
-
+        cv2.imshow("lane_processed_imag", lane_processed_imag)
+        cv2.waitKey(1)
         reward = self._compute_reward_3(car_data)
         self.done = self._check_done(car_data)
 
@@ -278,8 +287,11 @@ class CarRLEnvironment(gym.Env):
             processed_image (numpy.ndarray): The processed grayscale image.
         """
         resized_image = cv2.resize(image, (self.image_size, self.image_size))
-        lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
-        enhanced_image = ImageProcessing.enhance_red_objects(lane_processed_imag)
+        enhanced_image = ImageProcessing.enhance_red_objects(resized_image)
+        
+        # resized_image = cv2.resize(image, (self.image_size, self.image_size))
+        # lane_processed_imag = ImageProcessing.lane_detection_pipeline(resized_image)
+        # enhanced_image = ImageProcessing.enhance_red_objects(lane_processed_imag)
 
         return enhanced_image.astype(np.uint8)
         

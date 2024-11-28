@@ -44,7 +44,7 @@ if __name__ == '__main__':
             target=train_car_rl,
             kwargs={
                 "strategy": "SAC",
-                "model_mode": "load_best",
+                "model_mode": "new",
                 "timesteps": 100000,
                 "save_timesteps": unit * 100,
                 # "n_steps": unit * 10,

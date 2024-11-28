@@ -338,63 +338,61 @@ class ImprovedDrivingCNN(BaseFeaturesExtractor):
     def __init__(self, observation_space: spaces.Dict, features_dim: int = 256):
         super(ImprovedDrivingCNN, self).__init__(observation_space, features_dim)
         
+        # 获取输入通道数
         n_input_channels = observation_space['image'].shape[0]
         
-        # 1. 使用空洞卷積來增加感受野，更好地捕捉車道線
+        # 卷积神经网络定义
         self.cnn = nn.Sequential(
-            # 初始特征提取
-            nn.Conv2d(n_input_channels, 32, kernel_size=7, stride=2, padding=3),
+            nn.Conv2d(n_input_channels + 1, 32, kernel_size=7, stride=2, padding=3),  # 添加 lane 通道
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            
-            # 空洞卷積層，用於捕捉更大範圍的特徵
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=2, dilation=2),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            
-            # 深度可分離卷積，減少參數量同時保持性能
             nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1, groups=64),
             nn.Conv2d(64, 128, kernel_size=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            
-            # 注意力機制
             SpatialAttention(),
-            
-            # 最終特征提取
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            
-            nn.AdaptiveAvgPool2d((4, 4)),  # 自適應池化到固定大小
+            nn.AdaptiveAvgPool2d((4, 4)),
             nn.Flatten()
         )
         
-        # 計算CNN輸出維度
+        # 计算 CNN 输出维度
         with th.no_grad():
-            sample_input = th.zeros(1, *observation_space['image'].shape)
+            # 初始化包括额外 lane 通道的输入
+            sample_input = th.zeros(1, n_input_channels + 1, *observation_space['image'].shape[1:])
             cnn_output_dim = self.cnn(sample_input).shape[1]
         
-        # 添加殘差連接的全連接層
+        # 残差全连接层
         self.fc = ResidualFC(cnn_output_dim + 2, features_dim)
 
-        # Set up device
+        # 设置设备
         self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
         self.to(self.device)
 
     def forward(self, observations):
-        # 提取圖像和其他特徵
-        image = observations['image'].to(self.device)
-        steering = observations['steering_speed'].to(self.device)
+        # 提取图像和其他特征
+        image = observations['image'].to(self.device)  # 原始图像
+        lane = observations['lane'].to(self.device)  # 车道信息
+        lane = lane.unsqueeze(1)  # 增加通道维度
+        steering = observations['steering_speed'].to(self.device)  # 方向盘速度
         
-        # CNN特徵提取
-        cnn_features = self.cnn(image)
+        # 合并图像和 lane 信息
+        combined_input = th.cat([image, lane], dim=1)  # 在通道维度拼接
         
-        # 合併所有特徵
+        # CNN 特征提取
+        cnn_features = self.cnn(combined_input)
+        
+        # 合并 CNN 特征和方向盘速度
         combined_features = th.cat([cnn_features, steering], dim=1)
         
-        # 通過殘差全連接層
+        # 通过全连接层
         return self.fc(combined_features)
+
 
 class SpatialAttention(nn.Module):
     def __init__(self):
