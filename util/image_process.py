@@ -10,6 +10,9 @@ import numpy as np
 import cv2
 
 class ImageProcessing:
+    _last_right_line = None
+    _last_left_line = None
+
     @staticmethod
     def preprocess_image(image):
         """轉為灰階影像並進行高斯模糊處理。"""
@@ -39,6 +42,8 @@ class ImageProcessing:
 
         cv2.fillPoly(mask, polygon, 255)
         cropped_edges = cv2.bitwise_and(edges, mask)
+        # cv2.imshow('cropped_edges', cropped_edges)
+        # cv2.waitKey(0)
         return cropped_edges
     
     @staticmethod
@@ -62,8 +67,7 @@ class ImageProcessing:
                 minLineLength=10,
                 maxLineGap=120
             )
-        # cv2.imshow('cropped_edges', edges)
-        # cv2.waitKey(0)
+
         return lines
 
 
@@ -85,26 +89,42 @@ class ImageProcessing:
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
-                parameter = np.polyfit((x1, x2), (y1, y2), 1)  # 求直線的斜率和截距
-                slope = parameter[0]
-                intercept = parameter[1]
+                if abs(x1 - x2) < 1e-5 or abs(y1 - y2) < 1e-5:
+                    continue
+                try:
+                    # Try to fit a line to the points
+                    parameter = np.polyfit((x1, x2), (y1, y2), 1)
+                    slope = parameter[0]
+                    intercept = parameter[1]
 
-                if abs(slope) < 0.5:
-                    continue  # 去除接近水平的線
+                    if abs(slope) < 0.5:
+                        continue  # 去除接近水平的線
 
-                if slope < 0:  # 判斷斜率的正負來區分左右車道
-                    left_fit.append((slope, intercept))
-                else:
-                    right_fit.append((slope, intercept))
-
-            if len(left_fit) > 0 and len(right_fit) > 0:
+                    if slope < 0:  # 判斷斜率的正負來區分左右車道
+                        left_fit.append((slope, intercept))
+                    else:
+                        right_fit.append((slope, intercept))
+                except np.linalg.LinAlgError:
+                    continue
+                
+            coordinates = []
+            if len(left_fit) > 0:
                 left_fit_mean = np.mean(left_fit, axis=0)
-                right_fit_mean = np.mean(right_fit, axis=0)
-
                 left_coordinate = make_coordinate(left_fit_mean, y_max, y_min)
-                right_coordinate = make_coordinate(right_fit_mean, y_max, y_min)
+                ImageProcessing._last_left_line = left_coordinate
+                coordinates.append(left_coordinate)
+            else:
+                coordinates.append(ImageProcessing._last_left_line) if ImageProcessing._last_left_line is not None else None
 
-                return np.array([left_coordinate, right_coordinate])
+            if len(right_fit) > 0:
+                right_fit_mean = np.mean(right_fit, axis=0)
+                right_coordinate = make_coordinate(right_fit_mean, y_max, y_min)
+                ImageProcessing._last_right_line = right_coordinate
+                coordinates.append(right_coordinate)
+            else:
+                coordinates.append(ImageProcessing._last_right_line)  if ImageProcessing._last_right_line is not None else None
+
+            return coordinates
         return None
 
     @staticmethod
@@ -112,19 +132,25 @@ class ImageProcessing:
         """在原始影像上繪製偵測到的直線。"""
         line_image = np.zeros_like(image)
 
-        if lines is not None:
-            if line_image.ndim == 2:
-                for line in lines:
-                    x1, y1, x2, y2 = line
-                    cv2.line(line_image, (x1, y1), (x2, y2), 255, 2)
-            elif line_image.ndim == 3:
-                for line in lines:
-                    x1, y1, x2, y2 = line
-                    cv2.line(line_image, (x1, y1), (x2, y2), (255,255,255), 2)
+        lines = lines or [] # replace None with empty list
 
+        if line_image.ndim == 2:
+            for line in lines:
+                x1, y1, x2, y2 = line
+                cv2.line(line_image, (x1, y1), (x2, y2), 255, 2)
+        elif line_image.ndim == 3:
+            for line in lines:
+                x1, y1, x2, y2 = line
+                cv2.line(line_image, (x1, y1), (x2, y2), (255,255,255), 2)
+            
         combined_image = cv2.addWeighted(image, 1, line_image, 1, 1)
+
         return combined_image
-    
+        # if len(lines) >= 2 or ImageProcessing._last_image is None:
+        #     ImageProcessing._last_image = combined_image
+        #     return combined_image
+        # return ImageProcessing._last_image if ImageProcessing._last_image is not None else image
+
     @staticmethod
     def enhance_red_objects(image, red_threshold=30, alpha=2):
         """
@@ -181,7 +207,7 @@ if __name__ == "__main__":
     image_size = 128
     # 讀取 .npy 文件
     # loaded_data = np.load('image_process/image2.npy')
-    loaded_data = cv2.imread(r"C:\Users\JUN-TING HUANG\JT\PyAutoDriveRL-Env\image_process\image_gallery\car_image_20241128_202453.png")
+    loaded_data = cv2.imread(r"C:\Users\JUN-TING HUANG\JT\PyAutoDriveRL-Env\image_process\image_gallery\car_image_20241128_214907.png")
     # loaded_data = cv2.imread(r"C:\Users\JUN-TING HUANG\JT\PyAutoDriveRL-Env\image_process\image_gallery\car_image_20241128_202233.png")
     # loaded_data = cv2.imread(r"C:\Users\JUN-TING HUANG\JT\PyAutoDriveRL-Env\image_process\image_gallery\car_image_20241128_202152.png")
     # resize_data = cv2.resize(loaded_data, (image_size, image_size))
