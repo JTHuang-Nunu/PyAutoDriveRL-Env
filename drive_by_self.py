@@ -4,6 +4,10 @@ from stable_baselines3 import PPO, SAC
 from util.image_process import ImageProcessing
 
 from datetime import datetime
+from CarDataService import CarSocketService, CarData
+import numpy as np
+import random
+
 # 假設這是你的影像處理函式
 def _preprocess_observation(image):
     return cv2.resize(image, (128, 128))  # 這裡簡單地將影像縮放
@@ -22,14 +26,14 @@ def RL_Process(car_data):
 
     key = cv2.waitKey(10)  # 等待1ms並取得按鍵的ASCII值
 
-    print(f"Key pressed: {key  & 0xFF}")
+    # print(f"Key pressed: {key  & 0xFF}")
     if (key == (ord('z') & 0xFF)) or ((key == ord('Z') & 0xFF)):  # 當按下 'xX' 鍵時儲存影像
         print("You pressed 's'!")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"car_image_{timestamp}.png"
         save_image(processed_image, filename)
 
-    return 0, 0, 0
+    return 0, 0, np.random.rand()
 
 # 主程式
 if __name__ == '__main__':

@@ -101,7 +101,7 @@ if __name__ == '__main__':
     }
     # env = CarRLEnvironment(car_service)  # Adjust frame_stack_num based on how many frames to stack
     # rl_model = PPO.load(r".\PPO_best_model.zip")
-    rl_model = SAC.load(r".\runs\SAC_20241120_211751\best_model.pth")
+    rl_model = SAC.load(r".\runs\SAC_20241122_175744\best_model.pth")
 
     # Start the car service with the RL process
     car_service.start_with_RLProcess(RL_Process)
