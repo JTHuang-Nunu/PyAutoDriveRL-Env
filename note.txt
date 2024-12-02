@@ -1,2 +1,31 @@
+
+### 2024/12/02
+調整Y position reward, Yaw Reward, 降低progress 0.3->0.2
+
+SAC_20241128_225602
+表現不錯 但最後的上坡上不去 動作很精煉
+
+
+
+### 2024/11/29
+weight-progress: 0.7->0.3
+感覺progress給的有點太多
+ 04.0 fps -> unity world  04.0 fps, reward:  0.60       DEBUG - Progress: 0.45 Tracking: 0.05 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.50       DEBUG - Progress: 0.78 Tracking: 0.03 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.81       DEBUG - Progress: 0.91 Tracking: 0.01 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.92       DEBUG - Progress: 0.93 Tracking: 0.00 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.93       DEBUG - Progress: 0.98 Tracking: 0.00 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.98       DEBUG - Progress: 0.65 Tracking: 0.01 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.66       DEBUG - Progress: 0.60 Tracking: 0.05 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.65       DEBUG - Progress: 0.70 Tracking: 0.08 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.78       DEBUG - Progress: 0.50 Tracking: 0.09 Collision: 0.00 Anomaly: 0.00
+ 03.0 fps -> unity world  03.0 fps, reward:  0.59       DEBUG - Progress: 0.50 Tracking: 0.08 Collision: 0.00 Anomaly: 0.00
+ 04.0 fps -> unity world  04.0 fps, reward:  0.58       DEBUG - Progress: 0.46 Tracking: 0.07 Collision: 0.00 Anomaly: 0.00
+
+ ### 2024/11/28
 SAC_20241122_175744
 目前表現最好
+
+修正lane檢測，比較精準去找出車道線
+
+

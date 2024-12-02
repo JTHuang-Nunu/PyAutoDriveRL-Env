@@ -54,11 +54,11 @@ class CarRLEnvironment(gym.Env):
 
         self.shared_dict = share_dict
         self.reward_task = MixTask(task_weights={
-            'progress': 0.7,
+            'progress': 0.3, # 0.7, 12/02 0.3, 
             'tracking': 1.0,
             'collision': 1.0,
             'anomaly': 1.0
-        },)
+        }, speed_limits=[3.0,15.0])
         
         self.seq_len = 4
         self.frame_buffer = deque(maxlen=self.seq_len)
@@ -81,6 +81,7 @@ class CarRLEnvironment(gym.Env):
         """
         self.done = False
         self.car_service.send_control(0, 0, 1)  # Send stop command for a clean reset
+        # self.car_service.send_control(0, 0, np.random.randint(0, 100))  # Send stop command for a clean reset
         self.car_service.wait_for_new_data()
 
         car_data = self.car_service.carData

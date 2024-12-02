@@ -17,7 +17,9 @@ class UnitTestMode(Enum):
     ANOMALY = "Anomaly"
 
 class MixTask:
-    def __init__(self, task_weights: dict, unit_test: UnitTestMode = UnitTestMode.DISABLE):
+    def __init__(self, task_weights: dict, unit_test: UnitTestMode = UnitTestMode.DISABLE, 
+                 progress_reward: float = 100.0, collision_penalty: float = -10.0, anomaly_penalty: float = -10.0, 
+                 speed_limits: tuple[float, float] = (3.0, 30.0)):
         '''
         Initialize the tasks with the given weights
 
@@ -29,10 +31,10 @@ class MixTask:
         - Anomaly: Test only AnomalyHandlingTask
         '''
         self.task_weights = task_weights
-        self.ProgressTask = MaximizeProgressTask(progress_reward=100.0)
-        self.TrackingTask = TrackingTask(min_speed=3.0, max_speed=25.0, speed_stability_threshold=1)
-        self.CollisionTask = CollisionTask(collision_penalty=-10.0)
-        self.AnomalyHandlingTask = AnomalyHandlingTask(anomaly_penalty=-10.0)
+        self.ProgressTask = MaximizeProgressTask(progress_reward=progress_reward)
+        self.TrackingTask = TrackingTask(min_speed=speed_limits[0], max_speed=speed_limits[1], speed_stability_threshold=1)
+        self.CollisionTask = CollisionTask(collision_penalty=-collision_penalty)
+        self.AnomalyHandlingTask = AnomalyHandlingTask(anomaly_penalty=anomaly_penalty)
         
         self.unit_test = unit_test
         if unit_test == UnitTestMode.DISABLE:
@@ -171,7 +173,7 @@ class TrackingTask:
         # Counter for low-speed duration
         self.low_speed_count = 0
         self.high_speed_count = 0
-        self.low_speed_limit = 30
+        self.low_speed_count_max = 30
 
         # Delay thresholds for low-speed and high-speed penalties
         self.low_speed_delay_threshold = 5
@@ -181,22 +183,27 @@ class TrackingTask:
         self.warm_up_steps = warm_up_steps
         self.protection_counter = 0
 
-
+        # Y-position and record
+        self.y_position_queue = deque(maxlen=5)
+        self.acceleration_z_queue = deque(maxlen=5)
 
     def reward(self, car_data: CarData) -> float:
         # Get current speed
         speed = np.linalg.norm(car_data.speed)
         self.speed_queue.append(speed)
+        self.y_position_queue.append(car_data.y)
+        self.acceleration_z_queue.append(car_data.acceleration_z)
 
         # Initialize reward
-        speed_reward = 0.0
+        total_reward = 0.0
         
         # (Early Protection)Protection counter to avoid early penalization
         if self.protection_counter < self.warm_up_steps:
             self.protection_counter += 1
             return 0.0
 
-        # ========Reward based on speed range============
+        # \Reward based on speed range===================
+        speed_reward = 0.0
         if self.min_speed <= speed <= self.max_speed:
             # Reward for maintaining speed within the range
             speed_reward += 0.1 * (1 - abs(speed - (self.min_speed + self.max_speed) / 2) / ((self.max_speed - self.min_speed) / 2))
@@ -213,41 +220,64 @@ class TrackingTask:
             if self.high_speed_count > self.high_speed_delay_threshold:
                 deviation = (speed - self.max_speed) / self.max_speed
                 speed_reward -= 0.05 * deviation
-        # ==============================================
+        
+        total_reward += speed_reward
 
-        # ======Calculate speed stability reward========
+
+        # \Calculate speed stability reward==============
         if len(self.speed_queue) == self.speed_queue.maxlen:
             speed_std = np.std(self.speed_queue)
             if speed_std < self.speed_stability_threshold:
                 speed_reward += 0.1
+
+
+        # \Yaw acceleration reward=======================
+        if self.acceleration_z_queue ==5 and self.y_position_queue == 5:
+            reward_weight = 0.2 # 0.1
+            yaw_threshold = 5  # 10
+            yaw_reward = 0
+            avg_acceleration_z = np.mean(self.acceleration_z_queue)
+            if car_data.pitch > 270 and 360 - car_data.pitch > yaw_threshold: # Go up, pitch [350-335]
+                if avg_acceleration_z > 0.5: # Encoraging the car to go up
+                    yaw_reward += reward_weight * avg_acceleration_z
+                else:
+                    yaw_reward -= reward_weight * abs(avg_acceleration_z)
+
+            if car_data.pitch < 90 and car_data.pitch > yaw_threshold: # Go down, pitch [10-25]
+                if avg_acceleration_z < 0: # Encoraging the car to go down
+                    yaw_reward += reward_weight * abs(avg_acceleration_z)
+                else:
+                    yaw_reward -= reward_weight * abs(avg_acceleration_z)
+
+            total_reward  += yaw_reward
+
+        # \Y Position acceleration reward================
+        if len(self.y_position_queue) == 5:
+            reward_weight = 0.2
+            y_position_reward = 0
+            y_position_change = self.y_position_queue[-1] - self.y_position_queue[0]
+            avg_acceleration_z = np.mean(self.acceleration_z_queue)
+            
+            if y_position_change > 1:
+                if avg_acceleration_z > 0.5:  # 
+                    y_position_reward += reward_weight * avg_acceleration_z
+                else: 
+                    y_position_reward -= reward_weight * abs(avg_acceleration_z)
+            elif y_position_change < -1: 
+                if avg_acceleration_z < -0.5: 
+                    y_position_reward += reward_weight * abs(avg_acceleration_z)
+                else: 
+                    y_position_reward -= reward_weight * abs(avg_acceleration_z)
+
+        total_reward  += y_position_reward
         # ==============================================
 
-        # ===========Yaw acceleration reward============
-        yaw_threshold = 10
-        yaw_reward = 0
-        if car_data.pitch > 270 and 360 - car_data.pitch > yaw_threshold: # Go up, pitch [350-335]
-            if car_data.acceleration_z > 0.5: # Encoraging the car to go up
-                yaw_reward += 0.1 * car_data.acceleration_z
-            else:
-                yaw_reward -= 0.1 * car_data.acceleration_z
 
-        if car_data.pitch < 90 and car_data.pitch > yaw_threshold: # Go down, pitch [10-25]
-            if car_data.acceleration_z < 0: # Encoraging the car to go down
-                yaw_reward += 0.1 * abs(car_data.acceleration_z)
-            else:
-                yaw_reward -= 0.1 * abs(car_data.acceleration_z)
-
-        speed_reward  += yaw_reward
-        # ==============================================
-
-        
-
-
-        return speed_reward
+        return total_reward
 
     def done(self, car_dat) -> bool:
         # End task if the low-speed count exceeds the limit
-        if self.low_speed_count > self.low_speed_limit:
+        if self.low_speed_count > self.low_speed_count_max:
             return True
         return False
 

@@ -49,7 +49,7 @@ class ModelManager:
         return None
 
 
-    def save_model(self, model, type):
+    def save_model(self, model, type, file_name=None):
         """
         保存模型至指定的資料夾。
         """
@@ -68,6 +68,14 @@ class ModelManager:
             # # bak the best model
             # best_path_bak = os.path.join(self.model_dir, "best_model.pth")
             # model.save(best_path_bak)
+        elif type == 'manual':
+            if file_name is None:
+                path = os.path.join(self.model_curr_dir, "manual_model.pth")
+            else: 
+                path = os.path.join(self.model_curr_dir, f"{file_name}.pth")
+            model.save(path)
+            logger.info(f"Manual model saved to: {path}")
+
 
         else:
             raise ValueError("Invalid mode. Choose from 'latest' or 'best'.")

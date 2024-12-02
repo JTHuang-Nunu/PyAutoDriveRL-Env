@@ -1,6 +1,6 @@
 import cv2
 from stable_baselines3 import PPO, SAC
-
+import sys
 from util.image_process import ImageProcessing
 
 from datetime import datetime
@@ -18,8 +18,9 @@ def save_image(image, filename="image.png"):
     print(f"Image saved as {filename}")
 
 def RL_Process(car_data):
+    sys.stdout.write("\033[H\033[J")
+    print(car_data)
     # 假設 processed_image 是你從車輛獲得的處理過的影像
-
     processed_image = _preprocess_observation(car_data.image)
     lane_processed_imag = ImageProcessing.lane_detection_pipeline_forCNN(processed_image)
     cv2.imshow("lane_processed_imag", lane_processed_imag)
@@ -33,7 +34,7 @@ def RL_Process(car_data):
         filename = f"car_image_{timestamp}.png"
         save_image(processed_image, filename)
 
-    return 0, 0, np.random.rand()
+    return 0, 0, np.random.randint(0, 100)  # 返回隨機的操控值
 
 # 主程式
 if __name__ == '__main__':

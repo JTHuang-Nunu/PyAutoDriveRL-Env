@@ -45,8 +45,8 @@ if __name__ == '__main__':
             kwargs={
                 "strategy": "SAC",
                 "model_mode": "new",
-                "timesteps": 100000,
-                "save_timesteps": unit * 100,
+                "timesteps": 200000, # 100000
+                "save_timesteps": unit * 50, # 100
                 # "n_steps": unit * 10,
                 "batch_size": unit,
                 "share_dict": share_dict,
