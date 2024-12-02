@@ -10,6 +10,12 @@ stdout_handler = logging.StreamHandler(stream=sys.stdout)
 formatter = logging.Formatter(f"%(levelname)s - %(message)s")
 stdout_handler.setFormatter(formatter)
 
+# # Handler for writing to a file
+# file_handler = logging.FileHandler("./test.txt")
+# file_handler.setLevel(logging.INFO)
+# file_handler.setFormatter(formatter)
+# logger.addHandler(file_handler)
+
 # 避免重複添加 Handler
 if not logger.hasHandlers():
     logger.addHandler(stdout_handler)
@@ -47,3 +53,13 @@ def configure_logger(level=logging.INFO):
     logger.propagate = False
 
     return logger
+
+
+if __name__ == '__main__':
+
+    # 输出日志
+    logger.debug("This is a debug message.")
+    logger.info("This is an info message.")
+    logger.warning("This is a warning message.")
+    logger.error("This is an error message.")
+    logger.critical("This is a critical message.")
