@@ -275,11 +275,11 @@ class CarRLEnvironment(gym.Env):
         if car_data.y < 0 or car_data.progress >= 100.0:
             return True
 
-        if car_data.timestamp - self.__check_done_use_last_timestamp > 10000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
-            if car_data.progress - self.__check_done_use_progress < 0.001:
-                return True
-            self.__check_done_use_last_timestamp = car_data.timestamp
-            self.__check_done_use_progress = car_data.progress
+        # if car_data.timestamp - self.__check_done_use_last_timestamp > 10000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
+        #     if car_data.progress - self.__check_done_use_progress < 0.001:
+        #         return True
+        #     self.__check_done_use_last_timestamp = car_data.timestamp
+        #     self.__check_done_use_progress = car_data.progress
 
         return False
 
