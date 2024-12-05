@@ -17,8 +17,9 @@ class UnitTestMode(Enum):
     ANOMALY = "Anomaly"
 
 class MixTask:
-    def __init__(self, task_weights: dict, unit_test: UnitTestMode = UnitTestMode.DISABLE, 
-                 progress_reward: float = 100.0, collision_penalty: float = -10.0, anomaly_penalty: float = -10.0, 
+    def __init__(self, task_weights: dict, collision_penalty: float, anomaly_penalty: float,
+                 unit_test: UnitTestMode = UnitTestMode.DISABLE, 
+                 progress_reward: float = 100.0,
                  speed_limits: tuple[float, float] = (3.0, 30.0)):
         '''
         Initialize the tasks with the given weights
@@ -201,37 +202,43 @@ class TrackingTask:
         if self.protection_counter < self.warm_up_steps:
             self.protection_counter += 1
             return 0.0
-
-        # \Reward based on speed range===================
-        speed_reward = 0.0
-        if self.min_speed <= speed <= self.max_speed:
-            # Reward for maintaining speed within the range
-            speed_reward += 0.1 * (1 - abs(speed - (self.min_speed + self.max_speed) / 2) / ((self.max_speed - self.min_speed) / 2))
-            self.low_speed_count = 0
-        elif speed < self.min_speed:
-            # Low-speed delay counter
-            self.low_speed_count += 1
-            if self.low_speed_count > self.low_speed_delay_threshold:
-                deviation = (self.min_speed - speed) / self.min_speed
-                speed_reward -= 0.3 * deviation
-        if speed > self.max_speed:
-            # High-speed delay counter
-            self.high_speed_count += 1
-            if self.high_speed_count > self.high_speed_delay_threshold:
-                deviation = (speed - self.max_speed) / self.max_speed
-                speed_reward -= 0.05 * deviation
         
-        total_reward += speed_reward
+        # ==============================================
+        # \Speed assigned a positive or negative sign
+        # Negative Direction <-<-<-
+        if car_data.velocity_z < 0: 
+            speed = -speed
+        # Positive Direction ->->->
+        else:                  
+            # \Reward based on speed range
+            speed_reward = 0.0
+            if self.min_speed <= speed <= self.max_speed:
+                # Reward for maintaining speed within the range
+                speed_reward += 0.1 * (1 - abs(speed - (self.min_speed + self.max_speed) / 2) / ((self.max_speed - self.min_speed) / 2))
+                self.low_speed_count = 0
+            elif speed < self.min_speed:
+                # Low-speed delay counter
+                self.low_speed_count += 1
+                if self.low_speed_count > self.low_speed_delay_threshold:
+                    deviation = (self.min_speed - speed) / self.min_speed
+                    speed_reward -= 0.3 * deviation
+            if speed > self.max_speed:
+                # High-speed delay counter
+                self.high_speed_count += 1
+                if self.high_speed_count > self.high_speed_delay_threshold:
+                    deviation = (speed - self.max_speed) / self.max_speed
+                    speed_reward -= 0.05 * deviation
+            total_reward += speed_reward
 
 
-        # \Calculate speed stability reward==============
-        if len(self.speed_queue) == self.speed_queue.maxlen:
-            speed_std = np.std(self.speed_queue)
-            if speed_std < self.speed_stability_threshold:
-                speed_reward += 0.1
+            # \Calculate speed stability reward
+            if len(self.speed_queue) == self.speed_queue.maxlen:
+                speed_std = np.std(self.speed_queue)
+                if speed_std < self.speed_stability_threshold:
+                    speed_reward += 0.1
+        # ==============================================
 
-
-        # \Yaw acceleration reward=======================
+        # \Yaw acceleration reward
         if self.acceleration_z_queue ==5 and self.y_position_queue == 5:
             reward_weight = 0.2 # 0.1
             yaw_threshold = 5  # 10
@@ -249,9 +256,9 @@ class TrackingTask:
                 else:
                     yaw_reward -= reward_weight * abs(avg_acceleration_z)
 
-            total_reward  += yaw_reward
+                total_reward  += yaw_reward
 
-        # \Y Position acceleration reward================
+        # \Y Position acceleration reward
         if len(self.y_position_queue) == 5:
             reward_weight = 0.2
             y_position_reward = 0
@@ -293,18 +300,18 @@ class CollisionTask:
         self.max_obstacle = max_obstacle
         self._last_obstacle = 0
 
-    def reward(self, car_data) -> float:
+    def reward(self, car_data:CarData) -> float:
         '''
         This reward is "penalty" for collision.
         '''
-        # 检查是否发生碰撞
+        # Check if the obstacle count has increased
         if car_data.obstacle_car > self._last_obstacle:
             self._last_obstacle += 1
             logger.debug("Obstacle collision detected")
             return self.collision_penalty
         return 0.0
 
-    def done(self, car_data) -> bool:
+    def done(self, car_data:CarData) -> bool:
         if car_data.obstacle_car > self.max_obstacle:
             return True    
         return False
@@ -317,17 +324,13 @@ class AnomalyHandlingTask:
         self.anomaly_penalty = anomaly_penalty
         self.finish = False
         self.anomaly_t_count = 0
-        self.anamaly_t_max = 20
+        self.anamaly_t_max = 30 # 12/05 20
+
     def reward(self, car_data: CarData) -> float:
         '''
         This reward is "penalty" for anomaly.
         '''
-
-        return 0.0
-    
-    def done(self, car_data: CarData) -> bool:
-        # Roll penalty
-        if abs(car_data.roll-180) < 178:
+        if (car_data.roll + 5)% 360 > 20: # Eliminate the 350 ~ 10 degree
             if self.anomaly_t_count < self.anamaly_t_max:
                 self.anomaly_t_count += 1
             else:
@@ -335,8 +338,8 @@ class AnomalyHandlingTask:
                 logger.debug("Roll anomaly detected")
                 self.anamaly_t_count = 0
         
-        # Yaw penalty
-        if car_data.y < 0.4:
+        # Y Position penalty
+        if car_data.y < 0.3: # 12/05 0.4
             self.finish = True
             logger.debug("Y Position anomaly detected")
 
@@ -347,6 +350,13 @@ class AnomalyHandlingTask:
                 self.finish = True
                 logger.debug("Speed anomaly detected")
                 self.anamaly_t_count = 0
+
+        if self.finish:
+            return self.anomaly_penalty
+        
+        return 0.0
+    def done(self, car_data: CarData) -> bool:
+        # Roll penalty
         return self.finish
         
 

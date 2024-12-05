@@ -53,12 +53,15 @@ class CarRLEnvironment(gym.Env):
         self.__check_done_use_progress = 0
 
         self.shared_dict = share_dict
-        self.reward_task = MixTask(task_weights={
+        self.reward_task = MixTask(
+            collision_penalty=-5.0,
+            anomaly_penalty=-5.0,
+            task_weights={
             'progress': 0.3, # 0.7, 12/02 0.3, 
             'tracking': 1.0,
             'collision': 1.0,
             'anomaly': 1.0
-        }, speed_limits=[3.0,15.0])
+        }, speed_limits=[3.0,20.0],)
         
         self.seq_len = 4
         self.frame_buffer = deque(maxlen=self.seq_len)
@@ -80,8 +83,8 @@ class CarRLEnvironment(gym.Env):
             info (dict): Additional information (empty in this case).
         """
         self.done = False
-        self.car_service.send_control(0, 0, 1)  # Send stop command for a clean reset
-        # self.car_service.send_control(0, 0, np.random.randint(0, 100))  # Send stop command for a clean reset
+        # self.car_service.send_control(0, 0, 1)  # Send stop command for a clean reset
+        self.car_service.send_control(0, 0, np.random.randint(0,40))  # Send 
         self.car_service.wait_for_new_data()
 
         car_data = self.car_service.carData
@@ -146,10 +149,13 @@ class CarRLEnvironment(gym.Env):
             "lane": lane_processed_imag,
             "steering_speed": np.array([current_steering, current_speed], dtype=np.float32)
         }
-        cv2.imshow("lane_processed_imag", lane_processed_imag)
-        cv2.waitKey(1)
         reward = self._compute_reward_3(car_data)
         self.done = self._check_done(car_data)
+
+        # ===== lane imag =====
+        # cv2.imshow("lane_processed_imag", lane_processed_imag)
+        # cv2.waitKey(1)
+        # =====================
 
         # ===== debug message =====
         # Show the image
