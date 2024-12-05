@@ -2,7 +2,6 @@ import threading
 import tkinter as tk
 import time
 
-import tkinter as tk
 
 class CarDataWindow:
     def __init__(self, shared_dict):
@@ -36,5 +35,7 @@ class CarDataWindow:
         """
         Stop the GUI thread.
         """
-        if self.window is not None:
+        try:
             self.window.destroy()
+        except tk.TclError as e:
+            print(f"Error while destroying the window: {e}")

@@ -48,7 +48,12 @@ class ImageProcessing:
     
     @staticmethod
     def detect_lines(cropped_edges):
-        """使用霍夫變換檢測直線。"""
+        """
+        使用霍夫變換檢測直線
+
+        return:
+            lines: 直線的端點座標
+        """
         if cropped_edges.shape[0] == 64 or cropped_edges.shape[0] == 128 or cropped_edges.shape[0] == 256:
             lines = cv2.HoughLinesP( # 64 * 64
                 cropped_edges,
@@ -76,6 +81,8 @@ class ImageProcessing:
     def mean_coordinate(img, lines):
         '''
         計算左右車道線的坐標
+        return:
+            coordinates: [left_coordinate, right_coordinate]
         '''
         def make_coordinate(parameter, y_max, y_min):
             x1_mean = int((y_max - parameter[1]) / parameter[0])
@@ -201,6 +208,21 @@ class ImageProcessing:
         corrdinate = ImageProcessing.mean_coordinate(empty_image, lines)
         lane_image = ImageProcessing.draw_lines_on_image(empty_image, corrdinate)
         return lane_image
+    @staticmethod
+    def lane_detection_pipeline_forDrive(image):
+        """for DrivebySelf"""
+        preprocessed_image = ImageProcessing.preprocess_image(image)
+        edges = ImageProcessing.detect_edges(preprocessed_image)
+        cropped_edges = ImageProcessing.region_of_interest(edges)
+        # return cropped_edges
+
+        lines = ImageProcessing.detect_lines(cropped_edges)
+        # empty_image = np.zeros_like(image).squeeze()
+        empty_image = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+
+        corrdinate = ImageProcessing.mean_coordinate(empty_image, lines)
+        lane_image = ImageProcessing.draw_lines_on_image(empty_image, corrdinate)
+        return lane_image, cropped_edges
 
 # 測試 ImageProcessing 類別
 if __name__ == "__main__":

@@ -44,7 +44,6 @@ class ModelManager:
             if os.path.isdir(subdir_path):
                 model_path = os.path.join(subdir_path, weight_name)
                 if os.path.exists(model_path):
-                    logger.info(f"Loading model from: {model_path}")
                     return model_path
         return None
 

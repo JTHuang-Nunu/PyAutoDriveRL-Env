@@ -65,8 +65,8 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
                         env, 
                         policy_kwargs=policy_kwargs,
                         learning_starts = 20, # how many steps of the model to collect transitions for before learning starts
-                        learning_rate=3e-4,
-                        buffer_size=100000, 
+                        learning_rate=4e-4, # 3e-4
+                        buffer_size=50000, 
                         verbose=1,
                         batch_size=batch_size,
                         tensorboard_log=log_path)
@@ -80,6 +80,21 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     loader.set_model_dir(model_dir)
     # Load or create a new model
     try:
+        # Create a runs weight folder
+        model_dir = loader.create_model_directory(strategy)
+        
+        # Create the file handler for writing to a file
+        # formatter = logging.Formatter(f"%(levelname)s - %(message)s")
+        formatter = logging.Formatter(f"%(asctime)s - %(levelname)s - %(message)s")
+        file_handler = logging.FileHandler(f"{model_dir}/log.txt")
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logger.info('Training started...')
+        
+        logger.info(f"Created new model directory: {model_dir}")
+        
+        # Load the model if it exists
         if model_mode != "new":
             model_path = None
             # Get the latest model path
@@ -101,18 +116,6 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
                     model = loader.load_model(model, model_path)
             else:
                 logger.info("No existing model found. Starting new training.")
-
-        # Create a runs weight folder
-        model_dir = loader.create_model_directory(strategy)
-        logger.info(f"Created new model directory: {model_dir}")
-        
-        # Create the file handler for writing to a file
-        formatter = logging.Formatter(f"%(levelname)s - %(message)s")
-        file_handler = logging.FileHandler(f"{model_dir}/log.txt")
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        logger.info('Training started...')
 
     except FileNotFoundError as e:
         logger.error(e)
@@ -138,7 +141,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
         obs, info = env.reset()
         while current_timesteps < total_timesteps:
             timesteps_to_train = min(save_timesteps, total_timesteps - current_timesteps)
-            model.learn(total_timesteps=timesteps_to_train, reset_num_timesteps=False)
+            model.learn(total_timesteps=timesteps_to_train, reset_num_timesteps=True)
             current_timesteps += timesteps_to_train
 
             # Save latest model
