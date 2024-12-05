@@ -34,7 +34,7 @@ class MixTask:
         self.task_weights = task_weights
         self.ProgressTask = MaximizeProgressTask(progress_reward=progress_reward)
         self.TrackingTask = TrackingTask(min_speed=speed_limits[0], max_speed=speed_limits[1], speed_stability_threshold=1)
-        self.CollisionTask = CollisionTask(collision_penalty=-collision_penalty)
+        self.CollisionTask = CollisionTask(collision_penalty=collision_penalty)
         self.AnomalyHandlingTask = AnomalyHandlingTask(anomaly_penalty=anomaly_penalty)
         
         self.unit_test = unit_test
@@ -207,7 +207,24 @@ class TrackingTask:
         # \Speed assigned a positive or negative sign
         # Negative Direction <-<-<-
         if car_data.velocity_z < 0: 
-            speed = -speed
+            # speed = -speed
+            # if speed <= -self.min_speed:
+            #     # Low-speed delay counter
+            #     self.low_speed_count += 1
+            #     if self.low_speed_count > self.low_speed_delay_threshold:
+            #         deviation = abs(self.min_speed - speed / self.min_speed)
+            #         total_reward -= 0.3 * deviation
+            self.low_speed_count += 1
+            if abs(speed) >= self.min_speed:  # the speed is negative more than min_speed
+                if self.low_speed_count > self.low_speed_delay_threshold:
+                    deviation = (self.min_speed - abs(speed)) / self.min_speed
+                    total_reward -= 0.3 * deviation
+            else:
+                if self.low_speed_count > self.low_speed_delay_threshold:
+                    deviation = abs(speed) / self.min_speed
+                    total_reward -= 0.1 * deviation
+                    self.low_speed_count -= 1 
+
         # Positive Direction ->->->
         else:                  
             # \Reward based on speed range

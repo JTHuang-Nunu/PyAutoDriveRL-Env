@@ -17,7 +17,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-unit = 64
+unit = 64 # 1202 64
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -27,25 +27,25 @@ if __name__ == '__main__':
 
         car_data_window = CarDataWindow(share_dict)
 
-        # train_process = Process(
+        # train_process = Process(  #Main
         #     target=train_car_rl,
         #     kwargs={
-        #         "strategy": "PPO",
+        #         "strategy": "SAC",
         #         "model_mode": "load_best",
-        #         "timesteps": 1000000,
-        #         "save_timesteps": unit * 200,
-        #         "n_steps": unit * 10,
+        #         "timesteps": 500000, # 100000
+        #         "save_timesteps": unit * 30, # 100
+        #         # "n_steps": unit * 10,
         #         "batch_size": unit,
         #         "share_dict": share_dict,
         #         "image_wh_size": 128
         #     }
         # )
-        train_process = Process(
+        train_process = Process( # New
             target=train_car_rl,
             kwargs={
                 "strategy": "SAC",
                 "model_mode": "new",
-                "timesteps": 200000, # 100000
+                "timesteps": 100000, # 100000
                 "save_timesteps": unit * 50, # 100
                 # "n_steps": unit * 10,
                 "batch_size": unit,
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         try:
             
             train_process.start()
-            car_data_window.start()
+            # car_data_window.start() # show car data tkinter window
             train_process.join()
             # pass
         except KeyboardInterrupt:
@@ -66,4 +66,5 @@ if __name__ == '__main__':
             if train_process.is_alive():
                 train_process.terminate()
                 train_process.join()
-            car_data_window.stop()
+            if car_data_window:
+                car_data_window.stop()

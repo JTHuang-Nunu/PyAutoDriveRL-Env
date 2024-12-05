@@ -48,8 +48,13 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
     policy_kwargs = {
         "features_extractor_class": ImprovedDrivingCNN,
         "features_extractor_kwargs": {"features_dim": 256},  # Change feature dimensions if needed
+        "net_arch": {
+            "pi": [256, 256],  # Policy network architecture
+            "qf": [256, 256]   # Q-function network architecture
+        },
     }
     log_path = f"./log/{strategy}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
     # Choose between SAC or PPO model (PPO used here for example)
     try: 
         if strategy == 'PPO':
@@ -64,8 +69,8 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
             model = SAC("MultiInputPolicy",
                         env, 
                         policy_kwargs=policy_kwargs,
-                        learning_starts = 20, # how many steps of the model to collect transitions for before learning starts
-                        learning_rate=4e-4, # 3e-4
+                        learning_starts = 10, # how many steps of the model to collect transitions for before learning starts
+                        learning_rate=3e-4, # 3e-4
                         buffer_size=50000, 
                         verbose=1,
                         batch_size=batch_size,
@@ -141,7 +146,7 @@ def train_car_rl(strategy='PPO', model_mode='load',manual_path=None, timesteps=1
         obs, info = env.reset()
         while current_timesteps < total_timesteps:
             timesteps_to_train = min(save_timesteps, total_timesteps - current_timesteps)
-            model.learn(total_timesteps=timesteps_to_train, reset_num_timesteps=True)
+            model.learn(total_timesteps=timesteps_to_train, reset_num_timesteps=False)
             current_timesteps += timesteps_to_train
 
             # Save latest model

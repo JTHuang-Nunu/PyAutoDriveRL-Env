@@ -1,9 +1,12 @@
 ### 2024/12/05
 SAC_20241205_030332
 Fine-Tune昨天版本
-: 訓練品質不佳，今天改成reset_num_timesteps=True重新測試
+: 訓練品質不佳，今天改成reset_num_timesteps=True重新測試。True之後，reset後，會出現一點timestamp無法紀錄的問題。
 : 修正負速度問題，加上velocity_z供判斷
 : 降低anomaly懲罰，10->5
+
+處理過擬合問題
+: net_arch [256,256] -> [256,256,256]
 
 
 ### 2024/12/04

@@ -61,7 +61,7 @@ class CarRLEnvironment(gym.Env):
             'tracking': 1.0,
             'collision': 1.0,
             'anomaly': 1.0
-        }, speed_limits=[3.0,20.0],)
+        }, speed_limits=[3.0,25.0],)
         
         self.seq_len = 4
         self.frame_buffer = deque(maxlen=self.seq_len)
@@ -83,8 +83,8 @@ class CarRLEnvironment(gym.Env):
             info (dict): Additional information (empty in this case).
         """
         self.done = False
-        # self.car_service.send_control(0, 0, 1)  # Send stop command for a clean reset
-        self.car_service.send_control(0, 0, np.random.randint(0,40))  # Send 
+        self.car_service.send_control(0, 0, 1)  # Send stop command for a clean reset
+        # self.car_service.send_control(0, 0, np.random.randint(0,25))  # Send reset 0~25, the max is 50
         self.car_service.wait_for_new_data()
 
         car_data = self.car_service.carData
@@ -275,11 +275,11 @@ class CarRLEnvironment(gym.Env):
         if car_data.y < 0 or car_data.progress >= 100.0:
             return True
 
-        # if car_data.timestamp - self.__check_done_use_last_timestamp > 10000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
-        #     if car_data.progress - self.__check_done_use_progress < 0.001:
-        #         return True
-        #     self.__check_done_use_last_timestamp = car_data.timestamp
-        #     self.__check_done_use_progress = car_data.progress
+        if car_data.timestamp - self.__check_done_use_last_timestamp > 10000 / car_data.time_speed_up_scale: # MODIFY: 30000－＞ 10000
+            if car_data.progress - self.__check_done_use_progress < 0.001:
+                return True
+            self.__check_done_use_last_timestamp = car_data.timestamp
+            self.__check_done_use_progress = car_data.progress
 
         return False
 

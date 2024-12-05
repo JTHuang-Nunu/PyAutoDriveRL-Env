@@ -101,10 +101,10 @@ if __name__ == '__main__':
     }
     # env = CarRLEnvironment(car_service)  # Adjust frame_stack_num based on how many frames to stack
     # rl_model = PPO.load(r".\PPO_best_model.zip")
-    model_path = r".\runs\SAC_20241128_225602"
+    model_path = r".\runs\SAC_20241205_140259"
 
+    # model_path = os.path.join(model_path, "len.199.0_reward.6.88503347364167.pth")
     model_path = os.path.join(model_path, "best_model.pth")
-    # model_path = os.path.join(model_path, "latest_model.pth")
 
     rl_model = SAC.load(model_path)
 

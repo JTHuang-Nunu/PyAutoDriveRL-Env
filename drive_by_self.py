@@ -22,8 +22,9 @@ def RL_Process(car_data):
     print(car_data)
     # 假設 processed_image 是你從車輛獲得的處理過的影像
     processed_image = _preprocess_observation(car_data.image)
-    lane_processed_imag = ImageProcessing.lane_detection_pipeline_forCNN(processed_image)
+    lane_processed_imag, crop_image = ImageProcessing.lane_detection_pipeline_forDrive(processed_image)
     cv2.imshow("lane_processed_imag", lane_processed_imag)
+    cv2.imshow("crop_image", crop_image)
 
     key = cv2.waitKey(10)  # 等待1ms並取得按鍵的ASCII值
 
@@ -33,8 +34,8 @@ def RL_Process(car_data):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"car_image_{timestamp}.png"
         save_image(processed_image, filename)
-
-    return 0, 0, np.random.randint(0, 100)  # 返回隨機的操控值
+    print()
+    return 0, 0, 50  # 返回隨機的操控值
 
 # 主程式
 if __name__ == '__main__':
